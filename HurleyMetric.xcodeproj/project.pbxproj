@@ -1,0 +1,600 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		D2B91CE02F5AFD02005AE3AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2B91CCD2F5AFCFF005AE3AA;
+			remoteInfo = HurleyMetric;
+		};
+		D2B91CEA2F5AFD02005AE3AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2B91CCD2F5AFCFF005AE3AA;
+			remoteInfo = HurleyMetric;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		D2B91CCE2F5AFCFF005AE3AA /* HurleyMetric.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HurleyMetric.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B91CDF2F5AFD02005AE3AA /* HurleyMetricTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HurleyMetricTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HurleyMetricUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D2B91CF12F5AFD02005AE3AA /* Exceptions for "HurleyMetric" folder in "HurleyMetric" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D2B91CD02F5AFCFF005AE3AA /* HurleyMetric */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D2B91CF12F5AFD02005AE3AA /* Exceptions for "HurleyMetric" folder in "HurleyMetric" target */,
+			);
+			path = HurleyMetric;
+			sourceTree = "<group>";
+		};
+		D2B91CE22F5AFD02005AE3AA /* HurleyMetricTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HurleyMetricTests;
+			sourceTree = "<group>";
+		};
+		D2B91CEC2F5AFD02005AE3AA /* HurleyMetricUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HurleyMetricUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D2B91CCB2F5AFCFF005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CDC2F5AFD02005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CE62F5AFD02005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D2B91CC52F5AFCFF005AE3AA = {
+			isa = PBXGroup;
+			children = (
+				D2B91CD02F5AFCFF005AE3AA /* HurleyMetric */,
+				D2B91CE22F5AFD02005AE3AA /* HurleyMetricTests */,
+				D2B91CEC2F5AFD02005AE3AA /* HurleyMetricUITests */,
+				D2B91CCF2F5AFCFF005AE3AA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D2B91CCF2F5AFCFF005AE3AA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2B91CCE2F5AFCFF005AE3AA /* HurleyMetric.app */,
+				D2B91CDF2F5AFD02005AE3AA /* HurleyMetricTests.xctest */,
+				D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91CF22F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetric" */;
+			buildPhases = (
+				D2B91CCA2F5AFCFF005AE3AA /* Sources */,
+				D2B91CCB2F5AFCFF005AE3AA /* Frameworks */,
+				D2B91CCC2F5AFCFF005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91CD02F5AFCFF005AE3AA /* HurleyMetric */,
+			);
+			name = HurleyMetric;
+			packageProductDependencies = (
+			);
+			productName = HurleyMetric;
+			productReference = D2B91CCE2F5AFCFF005AE3AA /* HurleyMetric.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D2B91CDE2F5AFD02005AE3AA /* HurleyMetricTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91CF72F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricTests" */;
+			buildPhases = (
+				D2B91CDB2F5AFD02005AE3AA /* Sources */,
+				D2B91CDC2F5AFD02005AE3AA /* Frameworks */,
+				D2B91CDD2F5AFD02005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D2B91CE12F5AFD02005AE3AA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91CE22F5AFD02005AE3AA /* HurleyMetricTests */,
+			);
+			name = HurleyMetricTests;
+			packageProductDependencies = (
+			);
+			productName = HurleyMetricTests;
+			productReference = D2B91CDF2F5AFD02005AE3AA /* HurleyMetricTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D2B91CE82F5AFD02005AE3AA /* HurleyMetricUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91CFA2F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricUITests" */;
+			buildPhases = (
+				D2B91CE52F5AFD02005AE3AA /* Sources */,
+				D2B91CE62F5AFD02005AE3AA /* Frameworks */,
+				D2B91CE72F5AFD02005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D2B91CEB2F5AFD02005AE3AA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91CEC2F5AFD02005AE3AA /* HurleyMetricUITests */,
+			);
+			name = HurleyMetricUITests;
+			packageProductDependencies = (
+			);
+			productName = HurleyMetricUITests;
+			productReference = D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D2B91CC62F5AFCFF005AE3AA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					D2B91CCD2F5AFCFF005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D2B91CDE2F5AFD02005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D2B91CCD2F5AFCFF005AE3AA;
+					};
+					D2B91CE82F5AFD02005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D2B91CCD2F5AFCFF005AE3AA;
+					};
+				};
+			};
+			buildConfigurationList = D2B91CC92F5AFCFF005AE3AA /* Build configuration list for PBXProject "HurleyMetric" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D2B91CC52F5AFCFF005AE3AA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D2B91CCF2F5AFCFF005AE3AA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */,
+				D2B91CDE2F5AFD02005AE3AA /* HurleyMetricTests */,
+				D2B91CE82F5AFD02005AE3AA /* HurleyMetricUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D2B91CCC2F5AFCFF005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CDD2F5AFD02005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CE72F5AFD02005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2B91CCA2F5AFCFF005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CDB2F5AFD02005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CE52F5AFD02005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D2B91CE12F5AFD02005AE3AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */;
+			targetProxy = D2B91CE02F5AFD02005AE3AA /* PBXContainerItemProxy */;
+		};
+		D2B91CEB2F5AFD02005AE3AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */;
+			targetProxy = D2B91CEA2F5AFD02005AE3AA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		D2B91CF32F5AFD02005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HurleyMetric/HurleyMetric.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HurleyMetric/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D2B91CF42F5AFD02005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HurleyMetric/HurleyMetric.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HurleyMetric/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D2B91CF52F5AFD02005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D2B91CF62F5AFD02005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D2B91CF82F5AFD02005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetricTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HurleyMetric.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HurleyMetric";
+			};
+			name = Debug;
+		};
+		D2B91CF92F5AFD02005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetricTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HurleyMetric.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HurleyMetric";
+			};
+			name = Release;
+		};
+		D2B91CFB2F5AFD02005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetricUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = HurleyMetric;
+			};
+			name = Debug;
+		};
+		D2B91CFC2F5AFD02005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetricUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = HurleyMetric;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D2B91CC92F5AFCFF005AE3AA /* Build configuration list for PBXProject "HurleyMetric" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91CF52F5AFD02005AE3AA /* Debug */,
+				D2B91CF62F5AFD02005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91CF22F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetric" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91CF32F5AFD02005AE3AA /* Debug */,
+				D2B91CF42F5AFD02005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91CF72F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91CF82F5AFD02005AE3AA /* Debug */,
+				D2B91CF92F5AFD02005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91CFA2F5AFD02005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91CFB2F5AFD02005AE3AA /* Debug */,
+				D2B91CFC2F5AFD02005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+}
