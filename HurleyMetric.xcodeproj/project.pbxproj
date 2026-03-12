@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D24BE25C2F5B451E001F40A4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D24BE25B2F5B451E001F40A4 /* README.md */; };
+		D2B91D212F5B0122005AE3AA /* HurleyMetricWatch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D2B91D012F5B0120005AE3AA /* HurleyMetricWatch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D2B91CE02F5AFD02005AE3AA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +26,51 @@
 			remoteGlobalIDString = D2B91CCD2F5AFCFF005AE3AA;
 			remoteInfo = HurleyMetric;
 		};
+		D2B91D0E2F5B0122005AE3AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2B91D002F5B0120005AE3AA;
+			remoteInfo = "HurleyMetricWatch Watch App";
+		};
+		D2B91D182F5B0122005AE3AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2B91D002F5B0120005AE3AA;
+			remoteInfo = "HurleyMetricWatch Watch App";
+		};
+		D2B91D1F2F5B0122005AE3AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2B91D002F5B0120005AE3AA;
+			remoteInfo = "HurleyMetricWatch Watch App";
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D2B91D252F5B0122005AE3AA /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				D2B91D212F5B0122005AE3AA /* HurleyMetricWatch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		D24BE25B2F5B451E001F40A4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D2B91CCE2F5AFCFF005AE3AA /* HurleyMetric.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HurleyMetric.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2B91CDF2F5AFD02005AE3AA /* HurleyMetricTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HurleyMetricTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HurleyMetricUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B91D012F5B0120005AE3AA /* HurleyMetricWatch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HurleyMetricWatch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B91D0D2F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HurleyMetricWatch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2B91D172F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HurleyMetricWatch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -58,6 +102,21 @@
 			path = HurleyMetricUITests;
 			sourceTree = "<group>";
 		};
+		D2B91D022F5B0120005AE3AA /* HurleyMetricWatch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "HurleyMetricWatch Watch App";
+			sourceTree = "<group>";
+		};
+		D2B91D102F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "HurleyMetricWatch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		D2B91D1A2F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "HurleyMetricWatch Watch AppUITests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +141,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D2B91CFE2F5B0120005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D0A2F5B0122005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D142F5B0122005AE3AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -91,7 +171,11 @@
 				D2B91CD02F5AFCFF005AE3AA /* HurleyMetric */,
 				D2B91CE22F5AFD02005AE3AA /* HurleyMetricTests */,
 				D2B91CEC2F5AFD02005AE3AA /* HurleyMetricUITests */,
+				D2B91D022F5B0120005AE3AA /* HurleyMetricWatch Watch App */,
+				D2B91D102F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests */,
+				D2B91D1A2F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests */,
 				D2B91CCF2F5AFCFF005AE3AA /* Products */,
+				D24BE25B2F5B451E001F40A4 /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -101,6 +185,9 @@
 				D2B91CCE2F5AFCFF005AE3AA /* HurleyMetric.app */,
 				D2B91CDF2F5AFD02005AE3AA /* HurleyMetricTests.xctest */,
 				D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */,
+				D2B91D012F5B0120005AE3AA /* HurleyMetricWatch App.app */,
+				D2B91D0D2F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests.xctest */,
+				D2B91D172F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,10 +202,12 @@
 				D2B91CCA2F5AFCFF005AE3AA /* Sources */,
 				D2B91CCB2F5AFCFF005AE3AA /* Frameworks */,
 				D2B91CCC2F5AFCFF005AE3AA /* Resources */,
+				D2B91D252F5B0122005AE3AA /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D2B91D202F5B0122005AE3AA /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D2B91CD02F5AFCFF005AE3AA /* HurleyMetric */,
@@ -176,6 +265,74 @@
 			productReference = D2B91CE92F5AFD02005AE3AA /* HurleyMetricUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		D2B91D002F5B0120005AE3AA /* HurleyMetricWatch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91D222F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch App" */;
+			buildPhases = (
+				D2B91CFD2F5B0120005AE3AA /* Sources */,
+				D2B91CFE2F5B0120005AE3AA /* Frameworks */,
+				D2B91CFF2F5B0120005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91D022F5B0120005AE3AA /* HurleyMetricWatch Watch App */,
+			);
+			name = "HurleyMetricWatch App";
+			packageProductDependencies = (
+			);
+			productName = "HurleyMetricWatch Watch App";
+			productReference = D2B91D012F5B0120005AE3AA /* HurleyMetricWatch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D2B91D0C2F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91D262F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch Watch AppTests" */;
+			buildPhases = (
+				D2B91D092F5B0122005AE3AA /* Sources */,
+				D2B91D0A2F5B0122005AE3AA /* Frameworks */,
+				D2B91D0B2F5B0122005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D2B91D0F2F5B0122005AE3AA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91D102F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests */,
+			);
+			name = "HurleyMetricWatch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "HurleyMetricWatch Watch AppTests";
+			productReference = D2B91D0D2F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D2B91D162F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B91D292F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch Watch AppUITests" */;
+			buildPhases = (
+				D2B91D132F5B0122005AE3AA /* Sources */,
+				D2B91D142F5B0122005AE3AA /* Frameworks */,
+				D2B91D152F5B0122005AE3AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D2B91D192F5B0122005AE3AA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D2B91D1A2F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests */,
+			);
+			name = "HurleyMetricWatch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "HurleyMetricWatch Watch AppUITests";
+			productReference = D2B91D172F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +354,17 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = D2B91CCD2F5AFCFF005AE3AA;
 					};
+					D2B91D002F5B0120005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D2B91D0C2F5B0122005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D2B91D002F5B0120005AE3AA;
+					};
+					D2B91D162F5B0122005AE3AA = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D2B91D002F5B0120005AE3AA;
+					};
 				};
 			};
 			buildConfigurationList = D2B91CC92F5AFCFF005AE3AA /* Build configuration list for PBXProject "HurleyMetric" */;
@@ -216,6 +384,9 @@
 				D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */,
 				D2B91CDE2F5AFD02005AE3AA /* HurleyMetricTests */,
 				D2B91CE82F5AFD02005AE3AA /* HurleyMetricUITests */,
+				D2B91D002F5B0120005AE3AA /* HurleyMetricWatch App */,
+				D2B91D0C2F5B0122005AE3AA /* HurleyMetricWatch Watch AppTests */,
+				D2B91D162F5B0122005AE3AA /* HurleyMetricWatch Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -225,6 +396,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D24BE25C2F5B451E001F40A4 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,6 +408,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D2B91CE72F5AFD02005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91CFF2F5B0120005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D0B2F5B0122005AE3AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D152F5B0122005AE3AA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +459,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D2B91CFD2F5B0120005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D092F5B0122005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D2B91D132F5B0122005AE3AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -279,6 +493,21 @@
 			target = D2B91CCD2F5AFCFF005AE3AA /* HurleyMetric */;
 			targetProxy = D2B91CEA2F5AFD02005AE3AA /* PBXContainerItemProxy */;
 		};
+		D2B91D0F2F5B0122005AE3AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2B91D002F5B0120005AE3AA /* HurleyMetricWatch App */;
+			targetProxy = D2B91D0E2F5B0122005AE3AA /* PBXContainerItemProxy */;
+		};
+		D2B91D192F5B0122005AE3AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2B91D002F5B0120005AE3AA /* HurleyMetricWatch App */;
+			targetProxy = D2B91D182F5B0122005AE3AA /* PBXContainerItemProxy */;
+		};
+		D2B91D202F5B0122005AE3AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2B91D002F5B0120005AE3AA /* HurleyMetricWatch App */;
+			targetProxy = D2B91D1F2F5B0122005AE3AA /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -288,6 +517,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HurleyMetric/HurleyMetric.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DHKZ7WR43P;
@@ -299,6 +529,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -306,6 +537,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -322,6 +554,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HurleyMetric/HurleyMetric.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DHKZ7WR43P;
@@ -333,6 +566,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -340,6 +574,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -555,6 +790,162 @@
 			};
 			name = Release;
 		};
+		D2B91D232F5B0122005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HurleyMetric;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sakrist.HurleyMetric;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		D2B91D242F5B0122005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HurleyMetric;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sakrist.HurleyMetric;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sakrist.HurleyMetric.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		D2B91D272F5B0122005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sakrist.HurleyMetricWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HurleyMetricWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HurleyMetricWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D2B91D282F5B0122005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sakrist.HurleyMetricWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HurleyMetricWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HurleyMetricWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D2B91D2A2F5B0122005AE3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sakrist.HurleyMetricWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "HurleyMetricWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D2B91D2B2F5B0122005AE3AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHKZ7WR43P;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sakrist.HurleyMetricWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "HurleyMetricWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -590,6 +981,33 @@
 			buildConfigurations = (
 				D2B91CFB2F5AFD02005AE3AA /* Debug */,
 				D2B91CFC2F5AFD02005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91D222F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91D232F5B0122005AE3AA /* Debug */,
+				D2B91D242F5B0122005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91D262F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91D272F5B0122005AE3AA /* Debug */,
+				D2B91D282F5B0122005AE3AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D2B91D292F5B0122005AE3AA /* Build configuration list for PBXNativeTarget "HurleyMetricWatch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D2B91D2A2F5B0122005AE3AA /* Debug */,
+				D2B91D2B2F5B0122005AE3AA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

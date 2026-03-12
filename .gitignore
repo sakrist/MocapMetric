@@ -1,0 +1,24 @@
+.DS_Store
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+
+# Xcode build products and intermediate files
+DerivedData/
+build/
+Products/
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# CocoaPods and Carthage build output
+Pods/
+Carthage/Build/
+
+# Fastlane output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/

@@ -1,55 +1,61 @@
-//
-//  ContentView.swift
-//  HurleyMetric
-//
-//  Created by Volodymyr Boichentsov on 06/03/2026.
-//
-
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @StateObject private var inboxStore = RecordingInboxStore()
 
     var body: some View {
-        NavigationSplitView {
+        NavigationStack {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                if inboxStore.recordings.isEmpty {
+                    Text("No recordings yet. Record on watch, then stop to queue transfer.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    ForEach(inboxStore.recordings) { recording in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(recording.fileName)
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+
+                                Text(recording.createdAt, format: Date.FormatStyle(date: .numeric, time: .standard))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                Text(recording.fileSizeLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            ShareLink(item: recording.url) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .imageScale(.large)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
+            .navigationTitle("Watch Recordings")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Refresh") {
+                        inboxStore.reloadRecordings()
                     }
                 }
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            .safeAreaInset(edge: .bottom) {
+                Text(inboxStore.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
             }
         }
     }
@@ -57,5 +63,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
