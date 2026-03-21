@@ -16,7 +16,7 @@ final class WatchRecordingTransferManager: NSObject, WCSessionDelegate {
         session.activate()
     }
 
-    func transferRecording(at fileURL: URL) {
+    func transferRecordingFiles(sessionID: String, fileURLs: [URL]) {
         guard WCSession.isSupported() else { return }
 
         let session = WCSession.default
@@ -25,7 +25,12 @@ final class WatchRecordingTransferManager: NSObject, WCSessionDelegate {
             session.activate()
         }
 
-        session.transferFile(fileURL, metadata: ["fileName": fileURL.lastPathComponent])
+        for fileURL in fileURLs {
+            session.transferFile(fileURL, metadata: [
+                "fileName": fileURL.lastPathComponent,
+                "sessionID": sessionID,
+            ])
+        }
     }
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {

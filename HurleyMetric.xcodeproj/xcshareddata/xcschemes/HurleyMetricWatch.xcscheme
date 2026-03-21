@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D2B91D002F5B0120005AE3AA"
-               BuildableName = "HurleyMetricWatch App.app"
-               BlueprintName = "HurleyMetricWatch App"
+               BuildableName = "HurleyMetricWatch.app"
+               BlueprintName = "HurleyMetricWatch"
                ReferencedContainer = "container:HurleyMetric.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -83,8 +83,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D2B91D002F5B0120005AE3AA"
-            BuildableName = "HurleyMetricWatch App.app"
-            BlueprintName = "HurleyMetricWatch App"
+            BuildableName = "HurleyMetricWatch.app"
+            BlueprintName = "HurleyMetricWatch"
             ReferencedContainer = "container:HurleyMetric.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -100,8 +100,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D2B91D002F5B0120005AE3AA"
-            BuildableName = "HurleyMetricWatch App.app"
-            BlueprintName = "HurleyMetricWatch App"
+            BuildableName = "HurleyMetricWatch.app"
+            BlueprintName = "HurleyMetricWatch"
             ReferencedContainer = "container:HurleyMetric.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -3,23 +3,49 @@ import WatchConnectivity
 import SwiftUI
 import Combine
 
-struct RecordingFile: Identifiable {
-    let id: URL
-    let url: URL
+struct RecordingSession: Identifiable {
+    let id: String
     let createdAt: Date
-    let fileSizeBytes: Int64
+    let csvURL: URL?
+    let audioURL: URL?
 
-    var fileName: String {
-        url.lastPathComponent
+    var title: String {
+        id
     }
 
-    var fileSizeLabel: String {
-        ByteCountFormatter.string(fromByteCount: fileSizeBytes, countStyle: .file)
+    var totalSizeBytes: Int64 {
+        [csvURL, audioURL]
+            .compactMap { $0 }
+            .reduce(into: Int64(0)) { total, url in
+                let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+                total += Int64(values?.fileSize ?? 0)
+            }
+    }
+
+    var totalSizeLabel: String {
+        ByteCountFormatter.string(fromByteCount: totalSizeBytes, countStyle: .file)
+    }
+
+    var shareItems: [URL] {
+        [csvURL, audioURL].compactMap { $0 }
+    }
+
+    var detailLabel: String {
+        var parts: [String] = []
+
+        if csvURL != nil {
+            parts.append("CSV")
+        }
+        if audioURL != nil {
+            parts.append("Audio")
+        }
+
+        return parts.joined(separator: " + ")
     }
 }
 
 final class RecordingInboxStore: NSObject, ObservableObject {
-    @Published private(set) var recordings: [RecordingFile] = []
+    @Published private(set) var recordings: [RecordingSession] = []
     @Published private(set) var statusMessage = "Waiting for watch"
 
     override init() {
@@ -36,26 +62,42 @@ final class RecordingInboxStore: NSObject, ObservableObject {
             try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
             let files = try fileManager.contentsOfDirectory(
                 at: directoryURL,
-                includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey, .fileSizeKey],
+                includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey],
                 options: [.skipsHiddenFiles]
             )
 
-            let loadedRecordings = files.compactMap { url -> RecordingFile? in
-                guard url.pathExtension.lowercased() == "csv" else { return nil }
+            var groupedFiles: [String: (csvURL: URL?, audioURL: URL?, createdAt: Date)] = [:]
 
-                let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey, .fileSizeKey])
-                guard values?.isRegularFile == true else { return nil }
+            for url in files {
+                let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey])
+                guard values?.isRegularFile == true else { continue }
 
-                return RecordingFile(
-                    id: url,
-                    url: url,
-                    createdAt: values?.creationDate ?? .distantPast,
-                    fileSizeBytes: Int64(values?.fileSize ?? 0)
-                )
+                let fileExtension = url.pathExtension.lowercased()
+                guard fileExtension == "csv" || fileExtension == "m4a" else { continue }
+
+                let sessionID = url.deletingPathExtension().lastPathComponent
+                var entry = groupedFiles[sessionID] ?? (nil, nil, values?.creationDate ?? .distantPast)
+                entry.createdAt = max(entry.createdAt, values?.creationDate ?? .distantPast)
+
+                if fileExtension == "csv" {
+                    entry.csvURL = url
+                } else if fileExtension == "m4a" {
+                    entry.audioURL = url
+                }
+
+                groupedFiles[sessionID] = entry
             }
-            .sorted { $0.createdAt > $1.createdAt }
 
-            recordings = loadedRecordings
+            recordings = groupedFiles
+                .map { key, value in
+                    RecordingSession(
+                        id: key,
+                        createdAt: value.createdAt,
+                        csvURL: value.csvURL,
+                        audioURL: value.audioURL
+                    )
+                }
+                .sorted { $0.createdAt > $1.createdAt }
         } catch {
             statusMessage = "Load error: \(error.localizedDescription)"
         }

@@ -1,6 +1,7 @@
 import Foundation
 import CoreMotion
 import Combine
+import AVFoundation
 
 final class AccelerometerLogger: ObservableObject {
     @Published private(set) var isRecording = false
@@ -23,7 +24,10 @@ final class AccelerometerLogger: ObservableObject {
 
     private let fileQueue = DispatchQueue(label: "AccelerometerLogger.FileQueue")
     private var fileHandle: FileHandle?
-    private var currentFileURL: URL?
+    private var currentCSVFileURL: URL?
+    private var currentAudioFileURL: URL?
+    private var currentSessionID: String?
+    private var audioRecorder: AVAudioRecorder?
 
     private let maxHistorySamples = 150
 
@@ -33,28 +37,50 @@ final class AccelerometerLogger: ObservableObject {
 
     deinit {
         motionManager.stopDeviceMotionUpdates()
+        audioRecorder?.stop()
         try? fileHandle?.close()
     }
 
     func startLogging() {
         guard !isRecording else { return }
+        Task { [weak self] in
+            await self?.startLoggingSession()
+        }
+    }
+
+    private func startLoggingSession() async {
         guard motionManager.isDeviceMotionAvailable else {
             setStatus("Device motion unavailable")
             return
         }
 
+        let hasAudioPermission = await requestAudioPermission()
+        guard hasAudioPermission else {
+            setStatus("Microphone permission denied")
+            return
+        }
+
         do {
-            let fileURL = try createNewLogFileURL()
-            let handle = try prepareLogFile(at: fileURL)
+            let sessionID = Self.makeSessionID()
+            let csvFileURL = try createRecordingFileURL(sessionID: sessionID, fileExtension: "csv")
+            let audioFileURL = try createRecordingFileURL(sessionID: sessionID, fileExtension: "m4a")
+            let handle = try prepareLogFile(at: csvFileURL)
+            let recorder = try prepareAudioRecorder(at: audioFileURL)
+
             fileHandle = handle
-            currentFileURL = fileURL
+            currentCSVFileURL = csvFileURL
+            currentAudioFileURL = audioFileURL
+            currentSessionID = sessionID
+            audioRecorder = recorder
 
             sampleCount = 0
             latestAccelMagnitude = 0
             latestGyroMagnitude = 0
             recentAccelMagnitudes.removeAll(keepingCapacity: true)
             recentGyroMagnitudes.removeAll(keepingCapacity: true)
-            currentFileName = fileURL.lastPathComponent
+            currentFileName = csvFileURL.deletingPathExtension().lastPathComponent
+
+            recorder.record()
 
             motionManager.deviceMotionUpdateInterval = 1.0 / 50.0
             motionManager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, error in
@@ -73,8 +99,9 @@ final class AccelerometerLogger: ObservableObject {
             }
 
             isRecording = true
-            statusMessage = "Recording"
+            statusMessage = "Recording motion + audio"
         } catch {
+            cleanupIncompleteSession()
             setStatus("Failed to start: \(error.localizedDescription)")
         }
     }
@@ -83,6 +110,9 @@ final class AccelerometerLogger: ObservableObject {
         guard isRecording else { return }
 
         motionManager.stopDeviceMotionUpdates()
+        audioRecorder?.stop()
+        audioRecorder = nil
+        try? AVAudioSession.sharedInstance().setActive(false)
 
         let handle = fileHandle
         fileHandle = nil
@@ -94,9 +124,10 @@ final class AccelerometerLogger: ObservableObject {
 
         isRecording = false
 
-        if let completedFileURL = currentFileURL {
-            transferManager.transferRecording(at: completedFileURL)
-            statusMessage = "Stopped (queued for phone)"
+        if let sessionID = currentSessionID {
+            let files = [currentCSVFileURL, currentAudioFileURL].compactMap { $0 }
+            transferManager.transferRecordingFiles(sessionID: sessionID, fileURLs: files)
+            statusMessage = "Stopped (queued CSV + audio)"
         } else {
             statusMessage = "Stopped"
         }
@@ -155,7 +186,26 @@ final class AccelerometerLogger: ObservableObject {
         sqrt((x * x) + (y * y) + (z * z))
     }
 
-    private func createNewLogFileURL() throws -> URL {
+    private func requestAudioPermission() async -> Bool {
+        let application = AVAudioApplication.shared
+
+        switch application.recordPermission {
+        case .granted:
+            return true
+        case .undetermined:
+            return await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+        case .denied:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private func createRecordingFileURL(sessionID: String, fileExtension: String) throws -> URL {
         let documentsDirectory = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,
@@ -163,11 +213,7 @@ final class AccelerometerLogger: ObservableObject {
             create: true
         )
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        let timestamp = formatter.string(from: Date())
-
-        return documentsDirectory.appendingPathComponent("accelerometer_\(timestamp).csv")
+        return documentsDirectory.appendingPathComponent("recording_\(sessionID).\(fileExtension)")
     }
 
     private func prepareLogFile(at url: URL) throws -> FileHandle {
@@ -175,6 +221,46 @@ final class AccelerometerLogger: ObservableObject {
         let header = "timestamp,ax,ay,az,gx,gy,gz,grx,gry,grz\n"
         try header.write(to: url, atomically: true, encoding: .utf8)
         return try FileHandle(forWritingTo: url)
+    }
+
+    private func prepareAudioRecorder(at url: URL) throws -> AVAudioRecorder {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default)
+        try session.setActive(true)
+
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 44_100,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+        ]
+
+        let recorder = try AVAudioRecorder(url: url, settings: settings)
+        recorder.prepareToRecord()
+        return recorder
+    }
+
+    private func cleanupIncompleteSession() {
+        let fileManager = FileManager.default
+
+        if let currentCSVFileURL {
+            try? fileManager.removeItem(at: currentCSVFileURL)
+        }
+        if let currentAudioFileURL {
+            try? fileManager.removeItem(at: currentAudioFileURL)
+        }
+
+        currentCSVFileURL = nil
+        currentAudioFileURL = nil
+        currentSessionID = nil
+        audioRecorder = nil
+        fileHandle = nil
+    }
+
+    private static func makeSessionID() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        return formatter.string(from: Date())
     }
 
     private func setStatus(_ message: String) {

@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var inboxStore = RecordingInboxStore()
+    @State private var selectedRecording: RecordingSession?
 
     var body: some View {
         NavigationStack {
@@ -15,7 +17,7 @@ struct ContentView: View {
                     ForEach(inboxStore.recordings) { recording in
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(recording.fileName)
+                                Text(recording.title)
                                     .font(.subheadline)
                                     .lineLimit(1)
 
@@ -23,18 +25,21 @@ struct ContentView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
 
-                                Text(recording.fileSizeLabel)
+                                Text("\(recording.detailLabel) • \(recording.totalSizeLabel)")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
 
                             Spacer()
 
-                            ShareLink(item: recording.url) {
+                            Button {
+                                selectedRecording = recording
+                            } label: {
                                 Image(systemName: "square.and.arrow.up")
                                     .imageScale(.large)
                             }
                             .buttonStyle(.plain)
+                            .disabled(recording.shareItems.isEmpty)
                         }
                         .padding(.vertical, 4)
                     }
@@ -57,7 +62,21 @@ struct ContentView: View {
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial)
             }
+            .sheet(item: $selectedRecording) { recording in
+                ActivityView(items: recording.shareItems)
+            }
         }
+    }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
     }
 }
 
