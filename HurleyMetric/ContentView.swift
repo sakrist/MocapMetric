@@ -16,19 +16,24 @@ struct ContentView: View {
                 } else {
                     ForEach(inboxStore.recordings) { recording in
                         HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(recording.title)
-                                    .font(.subheadline)
-                                    .lineLimit(1)
+                            NavigationLink {
+                                RecordingDetailView(recording: recording)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(recording.title)
+                                        .font(.subheadline)
+                                        .lineLimit(1)
 
-                                Text(recording.createdAt, format: Date.FormatStyle(date: .numeric, time: .standard))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    Text(recording.createdAt, format: Date.FormatStyle(date: .numeric, time: .standard))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
 
-                                Text("\(recording.detailLabel) • \(recording.totalSizeLabel)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    Text("\(recording.detailLabel) • \(recording.totalSizeLabel)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .buttonStyle(.plain)
 
                             Spacer()
 
