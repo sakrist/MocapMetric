@@ -22,6 +22,19 @@ struct ContentView: View {
                     .labelsHidden()
             }
 
+            if logger.isArmed, let countdown = logger.countdownSecondsRemaining {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(.yellow)
+                        .frame(width: 8, height: 8)
+
+                    Text("Starting \(countdown, format: .number.precision(.fractionLength(1)))s")
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Accel")

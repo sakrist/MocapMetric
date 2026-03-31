@@ -8,13 +8,16 @@ struct RecordingSession: Identifiable {
     let createdAt: Date
     let csvURL: URL?
     let audioURL: URL?
+    let videoURL: URL?
+    let phoneMetadataURL: URL?
+    let watchMetadataURL: URL?
 
     var title: String {
         id
     }
 
     var totalSizeBytes: Int64 {
-        [csvURL, audioURL]
+        [csvURL, audioURL, videoURL, phoneMetadataURL, watchMetadataURL]
             .compactMap { $0 }
             .reduce(into: Int64(0)) { total, url in
                 let values = try? url.resourceValues(forKeys: [.fileSizeKey])
@@ -27,7 +30,7 @@ struct RecordingSession: Identifiable {
     }
 
     var shareItems: [URL] {
-        [csvURL, audioURL].compactMap { $0 }
+        [csvURL, audioURL, videoURL, phoneMetadataURL, watchMetadataURL].compactMap { $0 }
     }
 
     var detailLabel: String {
@@ -39,6 +42,12 @@ struct RecordingSession: Identifiable {
         if audioURL != nil {
             parts.append("Audio")
         }
+        if videoURL != nil {
+            parts.append("Video")
+        }
+        if phoneMetadataURL != nil || watchMetadataURL != nil {
+            parts.append("Metadata")
+        }
 
         return parts.joined(separator: " + ")
     }
@@ -47,9 +56,14 @@ struct RecordingSession: Identifiable {
 final class RecordingInboxStore: NSObject, ObservableObject {
     @Published private(set) var recordings: [RecordingSession] = []
     @Published private(set) var statusMessage = "Waiting for watch"
+    private let videoRecorder: PhoneVideoRecorder
 
-    override init() {
+    init(videoRecorder: PhoneVideoRecorder) {
+        self.videoRecorder = videoRecorder
         super.init()
+        videoRecorder.onRecordingSaved = { [weak self] in
+            self?.reloadRecordings()
+        }
         reloadRecordings()
         activateSession()
     }
@@ -66,26 +80,31 @@ final class RecordingInboxStore: NSObject, ObservableObject {
                 options: [.skipsHiddenFiles]
             )
 
-            var groupedFiles: [String: (csvURL: URL?, audioURL: URL?, createdAt: Date)] = [:]
+            var groupedFiles: [String: (csvURL: URL?, audioURL: URL?, videoURL: URL?, phoneMetadataURL: URL?, watchMetadataURL: URL?, createdAt: Date)] = [:]
 
             for url in files {
                 let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey])
                 guard values?.isRegularFile == true else { continue }
 
-                let fileExtension = url.pathExtension.lowercased()
-                guard fileExtension == "csv" || fileExtension == "m4a" else { continue }
+                guard let parsedFile = Self.parseRecordingFileName(url.lastPathComponent) else { continue }
 
-                let sessionID = url.deletingPathExtension().lastPathComponent
-                var entry = groupedFiles[sessionID] ?? (nil, nil, values?.creationDate ?? .distantPast)
+                var entry = groupedFiles[parsedFile.sessionID] ?? (nil, nil, nil, nil, nil, values?.creationDate ?? .distantPast)
                 entry.createdAt = max(entry.createdAt, values?.creationDate ?? .distantPast)
 
-                if fileExtension == "csv" {
+                switch parsedFile.kind {
+                case .csv:
                     entry.csvURL = url
-                } else if fileExtension == "m4a" {
+                case .audio:
                     entry.audioURL = url
+                case .video:
+                    entry.videoURL = url
+                case .phoneMetadata:
+                    entry.phoneMetadataURL = url
+                case .watchMetadata:
+                    entry.watchMetadataURL = url
                 }
 
-                groupedFiles[sessionID] = entry
+                groupedFiles[parsedFile.sessionID] = entry
             }
 
             recordings = groupedFiles
@@ -94,12 +113,46 @@ final class RecordingInboxStore: NSObject, ObservableObject {
                         id: key,
                         createdAt: value.createdAt,
                         csvURL: value.csvURL,
-                        audioURL: value.audioURL
+                        audioURL: value.audioURL,
+                        videoURL: value.videoURL,
+                        phoneMetadataURL: value.phoneMetadataURL,
+                        watchMetadataURL: value.watchMetadataURL
                     )
                 }
                 .sorted { $0.createdAt > $1.createdAt }
         } catch {
             statusMessage = "Load error: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteRecording(_ recording: RecordingSession) {
+        let fileManager = FileManager.default
+        let fileURLs = [
+            recording.csvURL,
+            recording.audioURL,
+            recording.videoURL,
+            recording.phoneMetadataURL,
+            recording.watchMetadataURL,
+        ].compactMap { $0 }
+
+        do {
+            for fileURL in fileURLs {
+                if fileManager.fileExists(atPath: fileURL.path) {
+                    try fileManager.removeItem(at: fileURL)
+                }
+            }
+
+            statusMessage = "Deleted \(recording.title)"
+            reloadRecordings()
+        } catch {
+            statusMessage = "Delete error: \(error.localizedDescription)"
+        }
+    }
+
+    func deleteRecordings(at offsets: IndexSet) {
+        let sessions = offsets.map { recordings[$0] }
+        for session in sessions {
+            deleteRecording(session)
         }
     }
 
@@ -163,6 +216,48 @@ final class RecordingInboxStore: NSObject, ObservableObject {
 
         return candidateURL
     }
+
+    private enum ParsedRecordingFileKind {
+        case csv
+        case audio
+        case video
+        case phoneMetadata
+        case watchMetadata
+    }
+
+    private struct ParsedRecordingFile {
+        let sessionID: String
+        let kind: ParsedRecordingFileKind
+    }
+
+    private static func parseRecordingFileName(_ fileName: String) -> ParsedRecordingFile? {
+        if fileName.hasSuffix(".watch.json") {
+            let sessionID = fileName.replacingOccurrences(of: ".watch.json", with: "")
+            return ParsedRecordingFile(sessionID: sessionID, kind: .watchMetadata)
+        }
+
+        if fileName.hasSuffix(".phone.json") {
+            let sessionID = fileName.replacingOccurrences(of: ".phone.json", with: "")
+            return ParsedRecordingFile(sessionID: sessionID, kind: .phoneMetadata)
+        }
+
+        if fileName.hasSuffix(".csv") {
+            let sessionID = fileName.replacingOccurrences(of: ".csv", with: "")
+            return ParsedRecordingFile(sessionID: sessionID, kind: .csv)
+        }
+
+        if fileName.hasSuffix(".m4a") {
+            let sessionID = fileName.replacingOccurrences(of: ".m4a", with: "")
+            return ParsedRecordingFile(sessionID: sessionID, kind: .audio)
+        }
+
+        if fileName.hasSuffix(".mov") {
+            let sessionID = fileName.replacingOccurrences(of: ".mov", with: "")
+            return ParsedRecordingFile(sessionID: sessionID, kind: .video)
+        }
+
+        return nil
+    }
 }
 
 extension RecordingInboxStore: WCSessionDelegate {
@@ -187,5 +282,60 @@ extension RecordingInboxStore: WCSessionDelegate {
 
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
         handleReceivedFile(file)
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        guard
+            let action = message["recordingControl"] as? String,
+            let sessionID = message["sessionID"] as? String
+        else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            switch action {
+            case "prepare":
+                let leadTime = message["leadTime"] as? Double ?? 2.0
+                let result = self.videoRecorder.prepareRemoteRecording(sessionID: sessionID, leadTime: leadTime)
+                self.statusMessage = result.accepted ? "Video pre-roll armed" : "Video sync unavailable"
+            case "start":
+                self.videoRecorder.startRemoteRecording(sessionID: sessionID)
+                self.statusMessage = "Watch started recording"
+            case "stop":
+                self.videoRecorder.stopRemoteRecording(sessionID: sessionID)
+                self.statusMessage = "Watch stopped recording"
+            default:
+                break
+            }
+        }
+    }
+
+    func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String : Any],
+        replyHandler: @escaping ([String : Any]) -> Void
+    ) {
+        guard
+            let action = message["recordingControl"] as? String,
+            let sessionID = message["sessionID"] as? String
+        else {
+            replyHandler([:])
+            return
+        }
+
+        guard action == "prepare" else {
+            replyHandler([:])
+            return
+        }
+
+        DispatchQueue.main.async {
+            let leadTime = message["leadTime"] as? Double ?? 2.0
+            let result = self.videoRecorder.prepareRemoteRecording(sessionID: sessionID, leadTime: leadTime)
+            self.statusMessage = result.accepted ? "Video pre-roll armed" : "Video sync unavailable"
+            replyHandler([
+                "plannedStartUnix": result.plannedStartUnix,
+                "accepted": result.accepted,
+            ])
+        }
     }
 }

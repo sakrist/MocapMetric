@@ -28,6 +28,12 @@ struct RecordingDetailView: View {
     @State private var selectedRecording: RecordingSession?
     @State private var selectedHit: HitRange?
     @State private var graphMode: GraphMode = .magnitude
+    @State private var showingDeleteConfirmation = false
+    @State private var isExportingVideo = false
+    @State private var exportedItems: [Any] = []
+    @State private var showingExportShare = false
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var inboxStore: RecordingInboxStore
 
     var body: some View {
         ScrollView {
@@ -49,9 +55,25 @@ struct RecordingDetailView: View {
                 }
                 .disabled(recording.shareItems.isEmpty)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+            }
         }
         .sheet(item: $selectedRecording) { selectedRecording in
             ActivityView(items: selectedRecording.shareItems)
+        }
+        .sheet(isPresented: $showingExportShare) {
+            ActivityView(items: exportedItems)
+        }
+        .confirmationDialog("Delete this recording?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                inboxStore.deleteRecording(recording)
+                dismiss()
+            }
         }
         .task(id: recording.id) {
             await processRecording()
@@ -137,6 +159,22 @@ struct RecordingDetailView: View {
                 Slider(value: $zoomScale, in: 0.5...maxZoom)
             }
 
+            Button {
+                Task {
+                    await exportOverlayVideo()
+                }
+            } label: {
+                HStack {
+                    if isExportingVideo {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(isExportingVideo ? "Exporting…" : "Export Overlay Video")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isExportingVideo || recording.videoURL == nil || analysis == nil)
+
             if let analysis {
                 ScrollView(.horizontal) {
                     RecordingGraphView(
@@ -214,6 +252,39 @@ struct RecordingDetailView: View {
         }
 
         isProcessing = false
+    }
+
+    @MainActor
+    private func exportOverlayVideo() async {
+        guard let analysis else { return }
+
+        isExportingVideo = true
+        defer { isExportingVideo = false }
+
+        do {
+            let exporter = VideoOverlayExporter()
+            let exportURL = try await exporter.exportOverlayVideo(
+                recording: recording,
+                samples: analysis.samples,
+                series: exportSeries,
+                modeTitle: graphMode.rawValue
+            )
+
+            exportedItems = [exportURL]
+            showingExportShare = true
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private var exportSeries: [ExportGraphSeries] {
+        graphSeries.map {
+            ExportGraphSeries(
+                title: $0.title,
+                color: UIColor($0.color),
+                values: $0.values
+            )
+        }
     }
 }
 

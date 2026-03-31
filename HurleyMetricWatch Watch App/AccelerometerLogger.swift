@@ -4,6 +4,17 @@ import Combine
 import AVFoundation
 
 final class AccelerometerLogger: ObservableObject {
+    private static let requestedDeviceMotionInterval = 1.0 / 200.0
+    private static let scheduledLeadTime: TimeInterval = 1.0
+
+    private struct WatchRecordingMetadata: Codable {
+        let sessionID: String
+        let plannedStartUnix: Double
+        let actualWatchStartUnix: Double
+        let requestedDeviceMotionInterval: Double
+        let createdUnix: Double
+    }
+
     @Published private(set) var isRecording = false
     @Published private(set) var sampleCount = 0
     @Published private(set) var currentFileName: String?
@@ -11,6 +22,8 @@ final class AccelerometerLogger: ObservableObject {
     @Published private(set) var latestGyroMagnitude = 0.0
     @Published private(set) var recentAccelMagnitudes: [Double] = []
     @Published private(set) var recentGyroMagnitudes: [Double] = []
+    @Published private(set) var isArmed = false
+    @Published private(set) var countdownSecondsRemaining: Double?
     @Published private(set) var statusMessage = "Idle"
 
     private let motionManager = CMMotionManager()
@@ -26,6 +39,7 @@ final class AccelerometerLogger: ObservableObject {
     private var fileHandle: FileHandle?
     private var currentCSVFileURL: URL?
     private var currentAudioFileURL: URL?
+    private var currentMetadataFileURL: URL?
     private var currentSessionID: String?
     private var audioRecorder: AVAudioRecorder?
 
@@ -64,12 +78,14 @@ final class AccelerometerLogger: ObservableObject {
             let sessionID = Self.makeSessionID()
             let csvFileURL = try createRecordingFileURL(sessionID: sessionID, fileExtension: "csv")
             let audioFileURL = try createRecordingFileURL(sessionID: sessionID, fileExtension: "m4a")
+            let metadataFileURL = try createMetadataFileURL(sessionID: sessionID)
             let handle = try prepareLogFile(at: csvFileURL)
             let recorder = try prepareAudioRecorder(at: audioFileURL)
 
             fileHandle = handle
             currentCSVFileURL = csvFileURL
             currentAudioFileURL = audioFileURL
+            currentMetadataFileURL = metadataFileURL
             currentSessionID = sessionID
             audioRecorder = recorder
 
@@ -78,11 +94,44 @@ final class AccelerometerLogger: ObservableObject {
             latestGyroMagnitude = 0
             recentAccelMagnitudes.removeAll(keepingCapacity: true)
             recentGyroMagnitudes.removeAll(keepingCapacity: true)
+            isArmed = false
+            countdownSecondsRemaining = nil
             currentFileName = csvFileURL.deletingPathExtension().lastPathComponent
 
-            recorder.record()
+            let scheduledStart = await transferManager.requestScheduledStart(
+                sessionID: sessionID,
+                leadTime: Self.scheduledLeadTime
+            )
 
-            motionManager.deviceMotionUpdateInterval = 1.0 / 50.0
+            let plannedStartUnix = scheduledStart?.plannedStartUnix ?? Date().timeIntervalSince1970
+
+            if plannedStartUnix > Date().timeIntervalSince1970 {
+                isArmed = true
+                setStatus("Armed, starting soon")
+                startCountdown(to: plannedStartUnix)
+                let delayNanoseconds = UInt64((plannedStartUnix - Date().timeIntervalSince1970) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
+
+            let actualWatchStartUnix = Date().timeIntervalSince1970
+            isArmed = false
+            countdownSecondsRemaining = nil
+            try saveWatchMetadata(
+                to: metadataFileURL,
+                metadata: WatchRecordingMetadata(
+                    sessionID: sessionID,
+                    plannedStartUnix: plannedStartUnix,
+                    actualWatchStartUnix: actualWatchStartUnix,
+                    requestedDeviceMotionInterval: Self.requestedDeviceMotionInterval,
+                    createdUnix: Date().timeIntervalSince1970
+                )
+            )
+
+            recorder.record(atTime: recorder.deviceCurrentTime + max(0, plannedStartUnix - actualWatchStartUnix))
+            transferManager.sendRecordingControl(action: .start, sessionID: sessionID)
+
+            // Request a very high sample rate; Core Motion clamps to the hardware maximum.
+            motionManager.deviceMotionUpdateInterval = Self.requestedDeviceMotionInterval
             motionManager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, error in
                 guard let self else { return }
 
@@ -101,6 +150,8 @@ final class AccelerometerLogger: ObservableObject {
             isRecording = true
             statusMessage = "Recording motion + audio"
         } catch {
+            isArmed = false
+            countdownSecondsRemaining = nil
             cleanupIncompleteSession()
             setStatus("Failed to start: \(error.localizedDescription)")
         }
@@ -112,6 +163,8 @@ final class AccelerometerLogger: ObservableObject {
         motionManager.stopDeviceMotionUpdates()
         audioRecorder?.stop()
         audioRecorder = nil
+        isArmed = false
+        countdownSecondsRemaining = nil
         try? AVAudioSession.sharedInstance().setActive(false)
 
         let handle = fileHandle
@@ -125,7 +178,8 @@ final class AccelerometerLogger: ObservableObject {
         isRecording = false
 
         if let sessionID = currentSessionID {
-            let files = [currentCSVFileURL, currentAudioFileURL].compactMap { $0 }
+            transferManager.sendRecordingControl(action: .stop, sessionID: sessionID)
+            let files = [currentCSVFileURL, currentAudioFileURL, currentMetadataFileURL].compactMap { $0 }
             transferManager.transferRecordingFiles(sessionID: sessionID, fileURLs: files)
             statusMessage = "Stopped (queued CSV + audio)"
         } else {
@@ -216,6 +270,17 @@ final class AccelerometerLogger: ObservableObject {
         return documentsDirectory.appendingPathComponent("recording_\(sessionID).\(fileExtension)")
     }
 
+    private func createMetadataFileURL(sessionID: String) throws -> URL {
+        let documentsDirectory = try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+
+        return documentsDirectory.appendingPathComponent("recording_\(sessionID).watch.json")
+    }
+
     private func prepareLogFile(at url: URL) throws -> FileHandle {
         FileManager.default.createFile(atPath: url.path, contents: nil)
         let header = "timestamp,ax,ay,az,gx,gy,gz,grx,gry,grz\n"
@@ -240,6 +305,37 @@ final class AccelerometerLogger: ObservableObject {
         return recorder
     }
 
+    private func saveWatchMetadata(to url: URL, metadata: WatchRecordingMetadata) throws {
+        let data = try JSONEncoder().encode(metadata)
+        try data.write(to: url, options: .atomic)
+    }
+
+    private func startCountdown(to plannedStartUnix: Double) {
+        Task { [weak self] in
+            guard let self else { return }
+
+            while self.isArmed {
+                let remaining = max(0, plannedStartUnix - Date().timeIntervalSince1970)
+
+                await MainActor.run {
+                    self.countdownSecondsRemaining = remaining
+                }
+
+                if remaining <= 0.05 {
+                    break
+                }
+
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+
+            await MainActor.run {
+                if self.isArmed {
+                    self.countdownSecondsRemaining = 0
+                }
+            }
+        }
+    }
+
     private func cleanupIncompleteSession() {
         let fileManager = FileManager.default
 
@@ -252,6 +348,7 @@ final class AccelerometerLogger: ObservableObject {
 
         currentCSVFileURL = nil
         currentAudioFileURL = nil
+        currentMetadataFileURL = nil
         currentSessionID = nil
         audioRecorder = nil
         fileHandle = nil

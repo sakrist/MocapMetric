@@ -2,12 +2,47 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
-    @StateObject private var inboxStore = RecordingInboxStore()
+    @StateObject private var videoRecorder: PhoneVideoRecorder
+    @StateObject private var inboxStore: RecordingInboxStore
     @State private var selectedRecording: RecordingSession?
+
+    init() {
+        let videoRecorder = PhoneVideoRecorder()
+        _videoRecorder = StateObject(wrappedValue: videoRecorder)
+        _inboxStore = StateObject(wrappedValue: RecordingInboxStore(videoRecorder: videoRecorder))
+    }
 
     var body: some View {
         NavigationStack {
             List {
+                Section("iPhone Video") {
+                    Toggle("Record iPhone video with watch", isOn: Binding(
+                        get: { videoRecorder.isArmed },
+                        set: { videoRecorder.setArmed($0) }
+                    ))
+
+                    Text("Keep the iPhone app open and reachable. Remote video start/stop only works while this app is active.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if videoRecorder.isArmed {
+                        ZStack {
+                            CameraPreviewView(session: videoRecorder.captureSession)
+                            if videoRecorder.showSyncFlash {
+                                Rectangle()
+                                    .fill(Color.white)
+                            }
+                        }
+                        .frame(height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        Text(videoRecorder.statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Recordings") {
                 if inboxStore.recordings.isEmpty {
                     Text("No recordings yet. Record on watch, then stop to queue transfer.")
                         .font(.footnote)
@@ -18,6 +53,7 @@ struct ContentView: View {
                         HStack(spacing: 12) {
                             NavigationLink {
                                 RecordingDetailView(recording: recording)
+                                    .environmentObject(inboxStore)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(recording.title)
@@ -48,6 +84,8 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .onDelete(perform: inboxStore.deleteRecordings)
+                }
                 }
             }
             .navigationTitle("Watch Recordings")
