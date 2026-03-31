@@ -19,16 +19,16 @@ final class HurleyMetricTests: XCTestCase {
 
         XCTAssertEqual(phoneMetadata.sessionID, "20260329_172110")
         XCTAssertEqual(watchMetadata.sessionID, "20260329_172110")
-        XCTAssertEqual(solution.watchToPhoneClockOffset, -0.09527182579040527, accuracy: 0.000_001)
+        XCTAssertEqual(solution.watchToPhoneClockOffset, 0, accuracy: 0.000_001)
         XCTAssertEqual(solution.actualVideoStartUnix, 1774801270.938487, accuracy: 0.000_001)
 
-        XCTAssertEqual(videoTimes[0], 2.0896012783050537, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[1], 2.098419189453125, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[2], 2.1085212230682373, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[0], 2.184873104095459, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[1], 2.1936910152435303, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[2], 2.2037930488586426, accuracy: 0.000_001)
 
         let phoneOnlyFirstVideoTime = timestamps[0] - phoneMetadata.actualVideoStartUnix!
         XCTAssertEqual(phoneOnlyFirstVideoTime, 2.184873104095459, accuracy: 0.000_001)
-        XCTAssertEqual(phoneOnlyFirstVideoTime - videoTimes[0], 0.09527182579040527, accuracy: 0.000_001)
+        XCTAssertEqual(phoneOnlyFirstVideoTime - videoTimes[0], 0, accuracy: 0.000_001)
     }
 
     func testAlignmentUsesPhoneAndWatchMetadataForVideoTime() throws {
@@ -53,7 +53,7 @@ final class HurleyMetricTests: XCTestCase {
             watchMetadata: watchMetadata
         )
 
-        XCTAssertEqual(solution.watchToPhoneClockOffset, -0.2, accuracy: 0.000_001)
+        XCTAssertEqual(solution.watchToPhoneClockOffset, 0, accuracy: 0.000_001)
         XCTAssertEqual(solution.actualVideoStartUnix, 98.5, accuracy: 0.000_001)
 
         let videoTimes = try VideoOverlayAlignment.sampleVideoTimes(
@@ -62,9 +62,9 @@ final class HurleyMetricTests: XCTestCase {
             watchMetadata: watchMetadata
         )
 
-        XCTAssertEqual(videoTimes[0], 1.5, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[1], 2.0, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[2], 2.5, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[0], 1.7, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[1], 2.2, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[2], 2.7, accuracy: 0.000_001)
     }
 
     func testAlignmentRejectsMismatchedSessionIDs() {
@@ -162,7 +162,7 @@ final class HurleyMetricTests: XCTestCase {
         XCTAssertEqual(phoneMetadata.sessionID, "recording_20260329_172110")
         XCTAssertEqual(watchMetadata.sessionID, "recording_20260329_172110")
         XCTAssertEqual(videoTimes.count, 1)
-        XCTAssertEqual(videoTimes[0], 2.0, accuracy: 0.000_001)
+        XCTAssertEqual(videoTimes[0], 2.2, accuracy: 0.000_001)
     }
 
     private func fixtureURL(named name: String, ext: String) throws -> URL {

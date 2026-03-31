@@ -72,9 +72,8 @@ struct VideoOverlayAlignment {
             throw VideoOverlayExporterError.invalidMetadata
         }
 
-        let watchToPhoneClockOffset = phoneMetadata.plannedStartUnix - watchMetadata.actualWatchStartUnix
         return Solution(
-            watchToPhoneClockOffset: watchToPhoneClockOffset,
+            watchToPhoneClockOffset: 0,
             actualVideoStartUnix: actualVideoStartUnix
         )
     }

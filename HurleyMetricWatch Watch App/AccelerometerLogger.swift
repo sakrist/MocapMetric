@@ -5,7 +5,7 @@ import AVFoundation
 
 final class AccelerometerLogger: ObservableObject {
     private static let requestedDeviceMotionInterval = 1.0 / 200.0
-    private static let scheduledLeadTime: TimeInterval = 1.0
+    private static let scheduledLeadTime: TimeInterval = 2.0
 
     private struct WatchRecordingMetadata: Codable {
         let sessionID: String
@@ -42,6 +42,8 @@ final class AccelerometerLogger: ObservableObject {
     private var currentMetadataFileURL: URL?
     private var currentSessionID: String?
     private var audioRecorder: AVAudioRecorder?
+    private var sampleUnixTimeAnchor: Double?
+    private var sampleMotionTimestampAnchor: TimeInterval?
 
     private let maxHistorySamples = 150
 
@@ -97,6 +99,8 @@ final class AccelerometerLogger: ObservableObject {
             isArmed = false
             countdownSecondsRemaining = nil
             currentFileName = csvFileURL.deletingPathExtension().lastPathComponent
+            sampleUnixTimeAnchor = nil
+            sampleMotionTimestampAnchor = nil
 
             let scheduledStart = await transferManager.requestScheduledStart(
                 sessionID: sessionID,
@@ -188,7 +192,7 @@ final class AccelerometerLogger: ObservableObject {
     }
 
     private func appendSample(_ motion: CMDeviceMotion) {
-        let timestamp = Date().timeIntervalSince1970
+        let timestamp = sampleUnixTimestamp(for: motion)
         let acceleration = motion.userAcceleration
         let gyro = motion.rotationRate
         let gravity = motion.gravity
@@ -238,6 +242,17 @@ final class AccelerometerLogger: ObservableObject {
 
     private func magnitude3(x: Double, y: Double, z: Double) -> Double {
         sqrt((x * x) + (y * y) + (z * z))
+    }
+
+    private func sampleUnixTimestamp(for motion: CMDeviceMotion) -> Double {
+        if let sampleUnixTimeAnchor, let sampleMotionTimestampAnchor {
+            return sampleUnixTimeAnchor + (motion.timestamp - sampleMotionTimestampAnchor)
+        }
+
+        let anchorUnixTime = Date().timeIntervalSince1970
+        sampleUnixTimeAnchor = anchorUnixTime
+        sampleMotionTimestampAnchor = motion.timestamp
+        return anchorUnixTime
     }
 
     private func requestAudioPermission() async -> Bool {
@@ -352,6 +367,8 @@ final class AccelerometerLogger: ObservableObject {
         currentSessionID = nil
         audioRecorder = nil
         fileHandle = nil
+        sampleUnixTimeAnchor = nil
+        sampleMotionTimestampAnchor = nil
     }
 
     private static func makeSessionID() -> String {

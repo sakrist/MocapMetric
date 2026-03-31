@@ -52,6 +52,8 @@ The current sync flow is:
 12. Watch starts:
     - motion logging
     - watch microphone recording
+    - one watch wall-clock anchor is captured on the first motion sample
+    - later CSV timestamps are derived from `CMDeviceMotion.timestamp` deltas
 13. iPhone now writes `actualVideoStartUnix` when the first actual video frame is observed through `AVCaptureVideoDataOutput`.
 14. When recording stops, watch transfers CSV, audio, and watch sidecar to iPhone.
 15. iPhone groups all files by `sessionID` and shows the session in the recordings list.
@@ -79,15 +81,23 @@ Current alignment model:
 
 1. Verify `phone.sessionID == watch.sessionID`.
 2. Verify `phone.plannedStartUnix` and `watch.plannedStartUnix` match within tolerance.
-3. Estimate watch-to-phone clock correction:
+3. Use the iPhone video anchor:
 
-`watchToPhoneClockOffset = phone.plannedStartUnix - watch.actualWatchStartUnix`
+`actualVideoStartUnix = phone.actualVideoStartUnix`
 
 4. Convert each watch CSV sample into iPhone video-relative time:
 
-`videoRelativeTime = sample.timestamp + watchToPhoneClockOffset - phone.actualVideoStartUnix`
+`videoRelativeTime = sample.timestamp - phone.actualVideoStartUnix`
 
-This is the model used by the iPhone exporter and should also be used by any external analysis tool if you want results to match the app.
+Why watch actual start is not used as a correction term:
+
+- `plannedStartUnix - actualWatchStartUnix` mixes two different effects:
+  - device clock offset
+  - watch-side start latency
+- if the watch starts late, applying that term shifts the entire IMU trace too early in video
+- empirical comparison against recorded sessions showed this over-correction in practice
+
+So the app now uses watch sidecars for validation and diagnostics, but anchors the overlay timeline to `actualVideoStartUnix`.
 
 ## Using The Files In External Tools
 
@@ -98,13 +108,14 @@ External tools should:
    - `recording_<session>.phone.json`
    - `recording_<session>.watch.json`
 2. Parse the first CSV column as watch-side Unix seconds.
-3. Compute:
+3. Validate:
 
-`watchToPhoneClockOffset = phone.plannedStartUnix - watch.actualWatchStartUnix`
+- `phone.sessionID == watch.sessionID`
+- `abs(phone.plannedStartUnix - watch.plannedStartUnix)` is small
 
 4. Convert every CSV timestamp:
 
-`phoneEquivalentUnix = csvTimestamp + watchToPhoneClockOffset`
+`phoneEquivalentUnix = csvTimestamp`
 
 5. Convert to video timeline:
 
@@ -118,20 +129,20 @@ The same data can also be used to trim or offset video in external tools.
 
 The current sync path is better than a simple `sample.timestamp - actualVideoStartUnix` model, but it still has error sources:
 
-1. Watch CSV sample timestamps are written with `Date().timeIntervalSince1970` inside the motion callback.
-   - This is callback wall-clock time, not the original Core Motion sample timestamp.
+1. Watch CSV timestamps now use one wall-clock anchor plus `CMDeviceMotion.timestamp` deltas.
+   - This removes per-sample callback jitter.
+   - The remaining watch-side error is the first anchor itself, which is still taken when the first motion callback arrives.
 2. `actualVideoStartUnix` is now tied to the first observed video frame, which is better than the movie output start callback, but it is still reconstructed from callback time plus capture clock timing.
 3. Watch and iPhone clocks are not explicitly calibrated with a round-trip clock sync protocol.
 4. The sync flash is not yet used as a measured alignment event in the app export math.
+5. The current export model intentionally does not apply a watch-start correction because that term also contains watch-side start latency and can over-correct.
 
 ## Recommended Simplifications And Improvements
 
 If the goal is lower sync error, the highest-value changes are:
 
-1. Use Core Motion relative timestamps on watch.
-   - Capture a watch wall-clock anchor once at start.
-   - Convert `CMDeviceMotion.timestamp` deltas into Unix time.
-   - This is the biggest remaining improvement on the watch side.
+1. The watch now uses Core Motion relative timestamps for CSV samples.
+   - Remaining improvement would be to tighten the first sample anchor further or store extra timing anchors in metadata.
 2. Keep the current phone first-frame anchor.
    - This is already better than the old movie-output callback timestamp.
 3. Keep one planned start value chosen by iPhone.
@@ -143,9 +154,10 @@ If you want the simplest model with fewer moving parts, the most realistic simpl
 
 - keep scheduled start
 - keep phone first-frame timestamp
-- change only watch sample timestamp generation to use Core Motion deltas
+- keep watch sample timestamp generation based on Core Motion deltas
+- avoid adding more sync layers until there is measurement proving they help
 
-That removes the largest remaining timing ambiguity without redesigning the architecture.
+That keeps the architecture understandable while removing the largest per-sample timing ambiguity.
 
 ## How To Record And Export
 

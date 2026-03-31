@@ -277,7 +277,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
 
     private func recordFirstFrameTimestampIfNeeded(estimatedUnixTime: Double) {
         guard needsFirstRecordedFrameTimestamp, movieOutput.isRecording else { return }
-        guard var currentMetadata = currentMetadata, currentMetadata.actualVideoStartUnix == nil else {
+        guard var currentMetadata = currentMetadata else {
             needsFirstRecordedFrameTimestamp = false
             return
         }
@@ -319,6 +319,18 @@ extension PhoneVideoRecorder: AVCaptureFileOutputRecordingDelegate {
         from connections: [AVCaptureConnection]
     ) {
         DispatchQueue.main.async {
+            if var currentMetadata = self.currentMetadata, currentMetadata.actualVideoStartUnix == nil {
+                currentMetadata = PhoneRecordingMetadata(
+                    sessionID: currentMetadata.sessionID,
+                    plannedStartUnix: currentMetadata.plannedStartUnix,
+                    preRollStartUnix: currentMetadata.preRollStartUnix,
+                    actualVideoStartUnix: Date().timeIntervalSince1970,
+                    syncFlashUnix: currentMetadata.syncFlashUnix,
+                    createdUnix: currentMetadata.createdUnix
+                )
+                self.currentMetadata = currentMetadata
+                self.saveCurrentMetadata()
+            }
             self.statusMessage = "Recording iPhone video"
         }
     }
