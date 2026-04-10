@@ -42,8 +42,11 @@ final class AccelerometerLogger: ObservableObject {
     private var currentMetadataFileURL: URL?
     private var currentSessionID: String?
     private var audioRecorder: AVAudioRecorder?
+    private var currentWatchMetadata: WatchRecordingMetadata?
     private var sampleUnixTimeAnchor: Double?
     private var sampleMotionTimestampAnchor: TimeInterval?
+    private var sampleWriteStartUnix: Double?
+    private var hasWrittenAcceptedSample = false
 
     private let maxHistorySamples = 150
 
@@ -99,8 +102,11 @@ final class AccelerometerLogger: ObservableObject {
             isArmed = false
             countdownSecondsRemaining = nil
             currentFileName = csvFileURL.deletingPathExtension().lastPathComponent
+            currentWatchMetadata = nil
             sampleUnixTimeAnchor = nil
             sampleMotionTimestampAnchor = nil
+            sampleWriteStartUnix = nil
+            hasWrittenAcceptedSample = false
 
             let scheduledStart = await transferManager.requestScheduledStart(
                 sessionID: sessionID,
@@ -108,33 +114,20 @@ final class AccelerometerLogger: ObservableObject {
             )
 
             let plannedStartUnix = scheduledStart?.plannedStartUnix ?? Date().timeIntervalSince1970
-
-            if plannedStartUnix > Date().timeIntervalSince1970 {
-                isArmed = true
-                setStatus("Armed, starting soon")
-                startCountdown(to: plannedStartUnix)
-                let delayNanoseconds = UInt64((plannedStartUnix - Date().timeIntervalSince1970) * 1_000_000_000)
-                try? await Task.sleep(nanoseconds: delayNanoseconds)
-            }
-
-            let actualWatchStartUnix = Date().timeIntervalSince1970
-            isArmed = false
-            countdownSecondsRemaining = nil
-            try saveWatchMetadata(
-                to: metadataFileURL,
-                metadata: WatchRecordingMetadata(
-                    sessionID: sessionID,
-                    plannedStartUnix: plannedStartUnix,
-                    actualWatchStartUnix: actualWatchStartUnix,
-                    requestedDeviceMotionInterval: Self.requestedDeviceMotionInterval,
-                    createdUnix: Date().timeIntervalSince1970
-                )
+            let preRollStartUnix = Date().timeIntervalSince1970
+            sampleWriteStartUnix = plannedStartUnix
+            currentWatchMetadata = WatchRecordingMetadata(
+                sessionID: sessionID,
+                plannedStartUnix: plannedStartUnix,
+                actualWatchStartUnix: plannedStartUnix,
+                requestedDeviceMotionInterval: Self.requestedDeviceMotionInterval,
+                createdUnix: preRollStartUnix
             )
 
-            recorder.record(atTime: recorder.deviceCurrentTime + max(0, plannedStartUnix - actualWatchStartUnix))
-            transferManager.sendRecordingControl(action: .start, sessionID: sessionID)
+            // Schedule audio against the agreed wall-clock start so the recorder can preroll.
+            recorder.record(atTime: recorder.deviceCurrentTime + max(0, plannedStartUnix - preRollStartUnix))
 
-            // Request a very high sample rate; Core Motion clamps to the hardware maximum.
+            // Start motion delivery early, then discard callback data until the agreed start time.
             motionManager.deviceMotionUpdateInterval = Self.requestedDeviceMotionInterval
             motionManager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, error in
                 guard let self else { return }
@@ -151,7 +144,21 @@ final class AccelerometerLogger: ObservableObject {
                 self.appendSample(motion)
             }
 
+            try saveCurrentWatchMetadata()
             isRecording = true
+
+            if plannedStartUnix > Date().timeIntervalSince1970 {
+                // Arm early so the watch and phone can begin on the same agreed wall-clock time.
+                isArmed = true
+                setStatus("Armed, starting soon")
+                startCountdown(to: plannedStartUnix)
+                let delayNanoseconds = UInt64((plannedStartUnix - Date().timeIntervalSince1970) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
+
+            isArmed = false
+            countdownSecondsRemaining = nil
+            transferManager.sendRecordingControl(action: .start, sessionID: sessionID)
             statusMessage = "Recording motion + audio"
         } catch {
             isArmed = false
@@ -193,6 +200,13 @@ final class AccelerometerLogger: ObservableObject {
 
     private func appendSample(_ motion: CMDeviceMotion) {
         let timestamp = sampleUnixTimestamp(for: motion)
+        guard let sampleWriteStartUnix, timestamp >= sampleWriteStartUnix else { return }
+
+        if !hasWrittenAcceptedSample {
+            hasWrittenAcceptedSample = true
+            updateActualWatchStartUnix(timestamp)
+        }
+
         let acceleration = motion.userAcceleration
         let gyro = motion.rotationRate
         let gravity = motion.gravity
@@ -214,6 +228,7 @@ final class AccelerometerLogger: ObservableObject {
             guard let bytes = line.data(using: .utf8) else { return }
 
             do {
+                // Serialize file writes because motion callbacks arrive off the main thread.
                 try handle?.seekToEnd()
                 try handle?.write(contentsOf: bytes)
             } catch {
@@ -246,9 +261,14 @@ final class AccelerometerLogger: ObservableObject {
 
     private func sampleUnixTimestamp(for motion: CMDeviceMotion) -> Double {
         if let sampleUnixTimeAnchor, let sampleMotionTimestampAnchor {
+            // Core Motion timestamps are relative to boot, so convert them into Unix time
+            // by applying the elapsed sensor time since the first sample to the first sample's
+            // wall-clock Unix timestamp.
             return sampleUnixTimeAnchor + (motion.timestamp - sampleMotionTimestampAnchor)
         }
 
+        // Capture both clocks from the first sample so later samples can stay precise without
+        // depending on Date() for every callback.
         let anchorUnixTime = Date().timeIntervalSince1970
         sampleUnixTimeAnchor = anchorUnixTime
         sampleMotionTimestampAnchor = motion.timestamp
@@ -325,21 +345,47 @@ final class AccelerometerLogger: ObservableObject {
         try data.write(to: url, options: .atomic)
     }
 
+    private func saveCurrentWatchMetadata() throws {
+        guard let currentMetadataFileURL, let currentWatchMetadata else { return }
+        try saveWatchMetadata(to: currentMetadataFileURL, metadata: currentWatchMetadata)
+    }
+
+    private func updateActualWatchStartUnix(_ actualWatchStartUnix: Double) {
+        guard let currentWatchMetadata else { return }
+
+        self.currentWatchMetadata = WatchRecordingMetadata(
+            sessionID: currentWatchMetadata.sessionID,
+            plannedStartUnix: currentWatchMetadata.plannedStartUnix,
+            actualWatchStartUnix: actualWatchStartUnix,
+            requestedDeviceMotionInterval: currentWatchMetadata.requestedDeviceMotionInterval,
+            createdUnix: currentWatchMetadata.createdUnix
+        )
+
+        do {
+            try saveCurrentWatchMetadata()
+        } catch {
+            setStatus("Metadata write error: \(error.localizedDescription)")
+        }
+    }
+
     private func startCountdown(to plannedStartUnix: Double) {
         Task { [weak self] in
             guard let self else { return }
 
             while self.isArmed {
+                // Recompute against wall-clock time so the UI countdown tracks the scheduled start.
                 let remaining = max(0, plannedStartUnix - Date().timeIntervalSince1970)
 
                 await MainActor.run {
                     self.countdownSecondsRemaining = remaining
                 }
 
+                // Treat the countdown as complete once we're within 50 ms of the target time.
                 if remaining <= 0.05 {
                     break
                 }
 
+                // Refresh the countdown about 10 times per second without burning CPU.
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
 
@@ -366,9 +412,12 @@ final class AccelerometerLogger: ObservableObject {
         currentMetadataFileURL = nil
         currentSessionID = nil
         audioRecorder = nil
+        currentWatchMetadata = nil
         fileHandle = nil
         sampleUnixTimeAnchor = nil
         sampleMotionTimestampAnchor = nil
+        sampleWriteStartUnix = nil
+        hasWrittenAcceptedSample = false
     }
 
     private static func makeSessionID() -> String {

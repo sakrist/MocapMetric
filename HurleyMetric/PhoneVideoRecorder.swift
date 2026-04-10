@@ -145,10 +145,12 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
     }
 
     private func scheduleSyncFlash(at plannedStartUnix: Double) {
+        // Convert the agreed wall-clock start time into a local delay for the UI flash.
         let delay = max(0, plannedStartUnix - Date().timeIntervalSince1970)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             self.showSyncFlash = true
+            // Keep the flash brief so it is easy to spot in the recorded video.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 self.showSyncFlash = false
             }
@@ -166,6 +168,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
         sessionQueue.async {
             if !self.didConfigureSession {
                 do {
+                    // Build the capture graph only once; later arming just restarts the session.
                     try self.configureSession()
                     self.didConfigureSession = true
                 } catch {
@@ -178,6 +181,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
             }
 
             if !self.captureSession.isRunning {
+                // Start camera delivery ahead of the watch signal so recording can begin immediately.
                 self.captureSession.startRunning()
             }
 

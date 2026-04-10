@@ -42,18 +42,19 @@ The current sync flow is:
    - `actualVideoStartUnix` initially `null`
    - `syncFlashUnix`
 8. iPhone shows a sync flash at `plannedStartUnix`.
-9. Watch receives `plannedStartUnix` and waits until that time.
-10. Watch records `actualWatchStartUnix` when recording actually begins.
+9. Watch receives `plannedStartUnix` and starts motion/audio pre-roll locally.
+10. Watch discards motion samples whose computed Unix timestamp is before `plannedStartUnix`.
 11. Watch writes `recording_<session>.watch.json` with:
     - `sessionID`
     - `plannedStartUnix`
     - `actualWatchStartUnix`
     - `requestedDeviceMotionInterval`
 12. Watch starts:
-    - motion logging
-    - watch microphone recording
+    - motion delivery before the sync point
+    - watch microphone recording scheduled against the same wall-clock start
     - one watch wall-clock anchor is captured on the first motion sample
     - later CSV timestamps are derived from `CMDeviceMotion.timestamp` deltas
+    - only samples at or after `plannedStartUnix` are written to CSV
 13. iPhone now writes `actualVideoStartUnix` when the first actual video frame is observed through `AVCaptureVideoDataOutput`.
 14. When recording stops, watch transfers CSV, audio, and watch sidecar to iPhone.
 15. iPhone groups all files by `sessionID` and shows the session in the recordings list.
@@ -70,7 +71,7 @@ The current sync flow is:
 `recording_<session>.watch.json`:
 
 - `plannedStartUnix`: same planned time received from iPhone
-- `actualWatchStartUnix`: watch wall-clock time when watch recording actually began
+- `actualWatchStartUnix`: Unix time of the first motion sample that was kept and written to CSV
 - `requestedDeviceMotionInterval`: requested Core Motion interval
 
 ## How Export Alignment Works
@@ -131,7 +132,8 @@ The current sync path is better than a simple `sample.timestamp - actualVideoSta
 
 1. Watch CSV timestamps now use one wall-clock anchor plus `CMDeviceMotion.timestamp` deltas.
    - This removes per-sample callback jitter.
-   - The remaining watch-side error is the first anchor itself, which is still taken when the first motion callback arrives.
+   - Watch motion now pre-rolls before the agreed sync time, so first-kept-sample latency is reduced versus starting Core Motion exactly at the target instant.
+   - The remaining watch-side error is still tied to the first anchor callback timing.
 2. `actualVideoStartUnix` is now tied to the first observed video frame, which is better than the movie output start callback, but it is still reconstructed from callback time plus capture clock timing.
 3. Watch and iPhone clocks are not explicitly calibrated with a round-trip clock sync protocol.
 4. The sync flash is not yet used as a measured alignment event in the app export math.
@@ -141,7 +143,7 @@ The current sync path is better than a simple `sample.timestamp - actualVideoSta
 
 If the goal is lower sync error, the highest-value changes are:
 
-1. The watch now uses Core Motion relative timestamps for CSV samples.
+1. The watch now uses Core Motion relative timestamps for CSV samples and pre-rolls motion before the agreed sync point.
    - Remaining improvement would be to tighten the first sample anchor further or store extra timing anchors in metadata.
 2. Keep the current phone first-frame anchor.
    - This is already better than the old movie-output callback timestamp.

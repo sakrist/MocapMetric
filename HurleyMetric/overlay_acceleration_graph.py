@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+DEFAULT_Y_LIMIT_G = 16.0
+DEFAULT_PLOT_MODE = "accel_xyz"
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -93,10 +96,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ax-color", type=str, default="#F97316", help="AX line color.")
     parser.add_argument("--ay-color", type=str, default="#f59e0b", help="AY line color.")
     parser.add_argument("--az-color", type=str, default="#facc15", help="AZ line color.")
+    parser.add_argument("--acc-mag-color", type=str, default="#22c55e", help="Acceleration magnitude line color.")
+    parser.add_argument("--gyro-mag-color", type=str, default="#38bdf8", help="Gyro magnitude line color.")
+    parser.add_argument(
+        "--plot-mode",
+        type=str,
+        choices=["accel_xyz", "gravity_xyz", "accel_gyro_mag"],
+        default=DEFAULT_PLOT_MODE,
+        help="Series to plot: 'accel_xyz' (ax/ay/az) or 'accel_gyro_mag' (|acc| and |gyro|).",
+    )
     parser.add_argument("--indicator-color", type=str, default="0xFF3B30", help="Playhead color for ffmpeg.")
     parser.add_argument("--indicator-width-px", type=int, default=4, help="Playhead width in pixels.")
     parser.add_argument("--line-width", type=float, default=1.8, help="Acceleration line width.")
-    parser.add_argument("--y-limit-g", type=float, default=16.0, help="Fixed Y axis limit in g (uses [-limit, +limit]).")
+    parser.add_argument(
+        "--y-limit-g",
+        type=float,
+        default=DEFAULT_Y_LIMIT_G,
+        help="Fixed Y axis limit in g (uses [-limit, +limit]).",
+    )
+    parser.add_argument(
+        "--y-scale-mode",
+        type=str,
+        choices=["fixed", "normalize"],
+        default="fixed",
+        help="Y-axis scaling mode: fixed (uses --y-limit-g) or normalize (auto-fit to data).",
+    )
     parser.add_argument("--past-sec", type=float, default=1.5, help="Seconds of history shown left of center line.")
     parser.add_argument("--future-sec", type=float, default=1.5, help="Seconds of future shown right of center line.")
     parser.add_argument(
@@ -146,6 +170,15 @@ def get_float_field(payload: dict[str, object] | None, key: str) -> float | None
             return float(value)
         except ValueError:
             return None
+    return None
+
+
+def get_str_field(payload: dict[str, object] | None, key: str) -> str | None:
+    if payload is None:
+        return None
+    value = payload.get(key)
+    if isinstance(value, str):
+        return value
     return None
 
 
@@ -227,6 +260,17 @@ def load_csv(csv_path: Path) -> pd.DataFrame:
     return df
 
 
+def validate_plot_columns(df: pd.DataFrame, plot_mode: str) -> None:
+    required = {"timestamp", "ax", "ay", "az"}
+    if plot_mode == "accel_gyro_mag":
+        required.update({"gx", "gy", "gz"})
+    if plot_mode == "gravity_xyz":
+        required.update({"grx", "gry", "grz"})
+    missing = required.difference(df.columns)
+    if missing:
+        raise ValueError(f"CSV missing required columns for plot mode '{plot_mode}': {sorted(missing)}")
+
+
 def dedupe_paths(paths: list[Path]) -> list[Path]:
     seen: set[Path] = set()
     ordered: list[Path] = []
@@ -290,7 +334,8 @@ def choose_offset_sec(
 ) -> tuple[float, str, dict[str, float | str | None]]:
     csv_first_epoch = float(csv_df["timestamp"].iloc[0])
     video_start_epoch: float | None = None
-    watch_to_phone_clock_offset: float | None = None
+    planned_delta_phone_minus_watch: float | None = None
+    planned_minus_watch_actual: float | None = None
 
     if args.offset_sec is not None:
         offset = float(args.offset_sec)
@@ -304,21 +349,39 @@ def choose_offset_sec(
             phone_planned_start = get_float_field(phone_meta, "plannedStartUnix")
             watch_actual_start = get_float_field(watch_meta, "actualWatchStartUnix")
             watch_planned_start = get_float_field(watch_meta, "plannedStartUnix")
+            phone_session_id = get_str_field(phone_meta, "sessionID")
+            watch_session_id = get_str_field(watch_meta, "sessionID")
 
             if (
-                phone_video_start is not None
-                and phone_planned_start is not None
-                and watch_actual_start is not None
-                and watch_planned_start is not None
+                phone_meta is not None
+                and watch_meta is not None
+                and phone_session_id is not None
+                and watch_session_id is not None
+                and phone_session_id != watch_session_id
             ):
-                if abs(phone_planned_start - watch_planned_start) > 0.050:
+                raise ValueError(
+                    "Phone/watch sidecars disagree about sessionID: "
+                    f"phone={phone_session_id}, watch={watch_session_id}"
+                )
+
+            if phone_planned_start is not None and watch_planned_start is not None:
+                planned_delta_phone_minus_watch = phone_planned_start - watch_planned_start
+                if abs(planned_delta_phone_minus_watch) > 0.050:
                     raise ValueError(
                         "Phone/watch sidecars disagree about plannedStartUnix: "
                         f"phone={phone_planned_start:.6f}, watch={watch_planned_start:.6f}"
                     )
+
+            if phone_planned_start is not None and watch_actual_start is not None:
+                planned_minus_watch_actual = phone_planned_start - watch_actual_start
+
+            if (
+                phone_video_start is not None
+                and phone_meta is not None
+                and watch_meta is not None
+            ):
                 video_start_epoch = phone_video_start
-                watch_to_phone_clock_offset = phone_planned_start - watch_actual_start
-                source = "auto-from-phone+watch-json(plannedStartUnix-actualWatchStartUnix,actualVideoStartUnix)"
+                source = "auto-from-export-model(phone.actualVideoStartUnix)"
             elif phone_video_start is not None:
                 video_start_epoch = phone_video_start
                 source = "auto-from-phone-json(actualVideoStartUnix)"
@@ -333,15 +396,16 @@ def choose_offset_sec(
             offset = 0.0
         else:
             offset = csv_first_epoch - video_start_epoch
-            if watch_to_phone_clock_offset is not None:
-                offset += watch_to_phone_clock_offset
 
     total = offset + float(args.extra_offset_sec)
     details: dict[str, float | str | None] = {
         "csv_first_epoch": csv_first_epoch,
         "video_start_epoch": video_start_epoch,
         "video_start_source": source,
-        "watch_to_phone_clock_offset": watch_to_phone_clock_offset,
+        "planned_delta_phone_minus_watch": planned_delta_phone_minus_watch,
+        "planned_minus_watch_actual": planned_minus_watch_actual,
+        "phone_session_id": get_str_field(phone_meta, "sessionID"),
+        "watch_session_id": get_str_field(watch_meta, "sessionID"),
         "phone_actual_video_start": get_float_field(phone_meta, "actualVideoStartUnix"),
         "phone_sync_flash": get_float_field(phone_meta, "syncFlashUnix"),
         "phone_planned_start": get_float_field(phone_meta, "plannedStartUnix"),
@@ -358,10 +422,14 @@ def make_graph_image(
     graph_image_w_px: int,
     graph_h_px: int,
     offset_sec: float,
+    plot_mode: str,
     ax_color: str,
     ay_color: str,
     az_color: str,
+    acc_mag_color: str,
+    gyro_mag_color: str,
     y_limit_g: float,
+    y_scale_mode: str,
     line_width: float,
 ) -> None:
     timestamps = csv_df["timestamp"].to_numpy(dtype=np.float64)
@@ -371,9 +439,7 @@ def make_graph_image(
     ax_values = csv_df["ax"].to_numpy(dtype=np.float64)
     ay_values = csv_df["ay"].to_numpy(dtype=np.float64)
     az_values = csv_df["az"].to_numpy(dtype=np.float64)
-    y_limit = max(float(y_limit_g), 0.25)
-    y_min = -y_limit
-    y_max = y_limit
+    series_arrays: list[np.ndarray] = []
 
     dpi = 120
     fig_w = graph_image_w_px / dpi
@@ -381,9 +447,55 @@ def make_graph_image(
     fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
     fig.patch.set_alpha(0.0)
     ax.set_facecolor((0.0, 0.0, 0.0, 0.0))
-    ax.plot(t_video, ax_values, color=ax_color, linewidth=line_width, alpha=0.98, label="ax")
-    ax.plot(t_video, ay_values, color=ay_color, linewidth=line_width, alpha=0.98, label="ay")
-    ax.plot(t_video, az_values, color=az_color, linewidth=line_width, alpha=0.98, label="az")
+    if plot_mode == "accel_gyro_mag":
+        gx_values = csv_df["gx"].to_numpy(dtype=np.float64)
+        gy_values = csv_df["gy"].to_numpy(dtype=np.float64)
+        gz_values = csv_df["gz"].to_numpy(dtype=np.float64)
+        acc_mag_values = np.sqrt(ax_values**2 + ay_values**2 + az_values**2)
+        gyro_mag_values = np.sqrt(gx_values**2 + gy_values**2 + gz_values**2)
+        ax.plot(t_video, acc_mag_values, color=acc_mag_color, linewidth=line_width, alpha=0.98, label="acc_mag")
+        ax.plot(t_video, gyro_mag_values, color=gyro_mag_color, linewidth=line_width, alpha=0.98, label="gyro_mag")
+        series_arrays = [acc_mag_values, gyro_mag_values]
+        y_label = "magnitude"
+        legend_cols = 2
+    elif plot_mode == "gravity_xyz":
+        grx_values = csv_df["grx"].to_numpy(dtype=np.float64)
+        gry_values = csv_df["gry"].to_numpy(dtype=np.float64)
+        grz_values = csv_df["grz"].to_numpy(dtype=np.float64)
+        ax.plot(t_video, grx_values, color=ax_color, linewidth=line_width, alpha=0.98, label="grx")
+        ax.plot(t_video, gry_values, color=ay_color, linewidth=line_width, alpha=0.98, label="gry")
+        ax.plot(t_video, grz_values, color=az_color, linewidth=line_width, alpha=0.98, label="grz")
+        series_arrays = [grx_values, gry_values, grz_values]
+        y_label = "g (gravity)"
+        legend_cols = 3
+    else:
+        ax.plot(t_video, ax_values, color=ax_color, linewidth=line_width, alpha=0.98, label="ax")
+        ax.plot(t_video, ay_values, color=ay_color, linewidth=line_width, alpha=0.98, label="ay")
+        ax.plot(t_video, az_values, color=az_color, linewidth=line_width, alpha=0.98, label="az")
+        series_arrays = [ax_values, ay_values, az_values]
+        y_label = "g"
+        legend_cols = 3
+
+    if y_scale_mode == "normalize":
+        all_values = np.concatenate(series_arrays)
+        p1 = float(np.percentile(all_values, 1))
+        p99 = float(np.percentile(all_values, 99))
+        if plot_mode == "accel_gyro_mag":
+            y_min = min(p1, 0.0)
+            y_max = max(p99, 0.0)
+            span = y_max - y_min
+            pad = max(span * 0.10, 0.05)
+            y_min -= pad
+            y_max += pad
+        else:
+            max_abs = max(abs(p1), abs(p99))
+            max_abs = max(max_abs * 1.10, 0.05)
+            y_min = -max_abs
+            y_max = max_abs
+    else:
+        y_limit = max(float(y_limit_g), 0.25)
+        y_min = -y_limit
+        y_max = y_limit
     ax.axhline(0.0, color=(1.0, 1.0, 1.0, 0.35), linewidth=0.9)
     ax.set_xlim(0.0, max(video_duration_sec, 1e-6))
     ax.set_ylim(y_min, y_max)
@@ -392,13 +504,13 @@ def make_graph_image(
         spine.set_color((1.0, 1.0, 1.0, 0.65))
     ax.tick_params(colors="white", labelsize=7)
     ax.set_xlabel("video time (s)", color="white", fontsize=8)
-    ax.set_ylabel("g", color="white", fontsize=8)
+    ax.set_ylabel(y_label, color="white", fontsize=8)
     legend = ax.legend(
         loc="upper right",
         framealpha=0.15,
         facecolor=(0.0, 0.0, 0.0, 0.2),
         edgecolor=(1.0, 1.0, 1.0, 0.2),
-        ncol=3,
+        ncol=legend_cols,
         fontsize=8,
         handlelength=1.6,
         handletextpad=0.4,
@@ -519,6 +631,7 @@ def main() -> None:
     print(f"Resolved files: csv={csv_path.name}, video={video_path.name}")
 
     csv_df = load_csv(csv_path)
+    validate_plot_columns(csv_df, args.plot_mode)
     video_info = ffprobe_video_info(video_path)
     phone_sidecar_path = video_path.with_suffix(".phone.json")
     watch_sidecar_path = video_path.with_suffix(".watch.json")
@@ -558,10 +671,12 @@ def main() -> None:
         f"fps={float(video_info['fps']):.3f}"
     )
     print(f"Video duration: {video_duration:.3f}s")
-    print(
-        f"Graph window: past={past_sec:.3f}s, future={future_sec:.3f}s, "
-        f"fixed_y=[{-float(args.y_limit_g):.1f}, +{float(args.y_limit_g):.1f}] g"
-    )
+    if args.y_scale_mode == "fixed":
+        y_scale_text = f"fixed_y=[{-float(args.y_limit_g):.1f}, +{float(args.y_limit_g):.1f}] g"
+    else:
+        y_scale_text = "normalized_y=auto-fit"
+    print(f"Graph window: past={past_sec:.3f}s, future={future_sec:.3f}s, {y_scale_text}")
+    print(f"Plot mode: {args.plot_mode}")
     print(
         "Sidecars: "
         f"phone_json={'yes' if phone_meta is not None else 'no'} "
@@ -569,6 +684,12 @@ def main() -> None:
         f"watch_json={'yes' if watch_meta is not None else 'no'} "
         f"({watch_sidecar_path.name})"
     )
+    if sync_details["phone_session_id"] is not None and sync_details["watch_session_id"] is not None:
+        print(
+            "Session check: "
+            f"phone.sessionID={sync_details['phone_session_id']} "
+            f"watch.sessionID={sync_details['watch_session_id']}"
+        )
     if sync_details["video_start_epoch"] is not None:
         print(
             "Sync timestamps: "
@@ -580,10 +701,17 @@ def main() -> None:
     if sync_details["watch_actual_start"] is not None:
         csv_minus_watch = float(sync_details["csv_first_epoch"]) - float(sync_details["watch_actual_start"])
         print(f"Watch check: csv_first - actualWatchStartUnix = {csv_minus_watch:+.6f}s")
-    if sync_details["watch_to_phone_clock_offset"] is not None:
+    if sync_details["planned_delta_phone_minus_watch"] is not None:
         print(
-            "Clock correction: "
-            f"watch_to_phone_offset={float(sync_details['watch_to_phone_clock_offset']):+.6f}s"
+            "Planned check: "
+            f"phone.plannedStartUnix - watch.plannedStartUnix="
+            f"{float(sync_details['planned_delta_phone_minus_watch']):+.6f}s"
+        )
+    if sync_details["planned_minus_watch_actual"] is not None:
+        print(
+            "Diagnostics: "
+            f"phone.plannedStartUnix - watch.actualWatchStartUnix="
+            f"{float(sync_details['planned_minus_watch_actual']):+.6f}s (not applied)"
         )
     print(f"Offset applied: {offset_sec:+.6f}s ({offset_source}, extra={args.extra_offset_sec:+.6f}s)")
 
@@ -596,10 +724,14 @@ def main() -> None:
             graph_image_w_px=graph_image_w,
             graph_h_px=graph_h,
             offset_sec=offset_sec,
+            plot_mode=args.plot_mode,
             ax_color=args.ax_color,
             ay_color=args.ay_color,
             az_color=args.az_color,
+            acc_mag_color=args.acc_mag_color,
+            gyro_mag_color=args.gyro_mag_color,
             y_limit_g=float(args.y_limit_g),
+            y_scale_mode=args.y_scale_mode,
             line_width=float(args.line_width),
         )
         overlay_graph_on_video(
