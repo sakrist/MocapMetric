@@ -1,50 +1,22 @@
 import XCTest
+import WatchMotionRecordingKit
 @testable import HurleyMetric
 
 final class HurleyMetricTests: XCTestCase {
-    func testFixtureAlignmentUsesBothPhoneAndWatchSidecars() throws {
-        let phoneMetadata = try VideoOverlayAlignment.loadPhoneMetadata(from: fixtureURL(named: "recording_20260329_172110.phone", ext: "json"))
-        let watchMetadata = try VideoOverlayAlignment.loadWatchMetadata(from: fixtureURL(named: "recording_20260329_172110.watch", ext: "json"))
-        let timestamps = try loadFixtureTimestamps(from: fixtureURL(named: "recording_20260329_172110", ext: "csv"), limit: 3)
-
-        let solution = try VideoOverlayAlignment.solve(
-            phoneMetadata: phoneMetadata,
-            watchMetadata: watchMetadata
-        )
-        let videoTimes = try VideoOverlayAlignment.sampleVideoTimes(
-            sampleTimestamps: timestamps,
-            phoneMetadata: phoneMetadata,
-            watchMetadata: watchMetadata
-        )
-
-        XCTAssertEqual(phoneMetadata.sessionID, "20260329_172110")
-        XCTAssertEqual(watchMetadata.sessionID, "20260329_172110")
-        XCTAssertEqual(solution.watchToPhoneClockOffset, 0, accuracy: 0.000_001)
-        XCTAssertEqual(solution.actualVideoStartUnix, 1774801270.938487, accuracy: 0.000_001)
-
-        XCTAssertEqual(videoTimes[0], 2.184873104095459, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[1], 2.1936910152435303, accuracy: 0.000_001)
-        XCTAssertEqual(videoTimes[2], 2.2037930488586426, accuracy: 0.000_001)
-
-        let phoneOnlyFirstVideoTime = timestamps[0] - phoneMetadata.actualVideoStartUnix!
-        XCTAssertEqual(phoneOnlyFirstVideoTime, 2.184873104095459, accuracy: 0.000_001)
-        XCTAssertEqual(phoneOnlyFirstVideoTime - videoTimes[0], 0, accuracy: 0.000_001)
-    }
-
-    func testAlignmentUsesPhoneAndWatchMetadataForVideoTime() throws {
-        let phoneMetadata = VideoOverlayAlignment.PhoneRecordingMetadata(
-            sessionID: "recording_20260329_172110",
+    func testAlignmentUsesPhoneFirstVideoFrameAndValidatesWatchSidecar() throws {
+        let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
+        let phoneMetadata = PhoneRecordingMetadata(
+            sessionID: sessionID,
             plannedStartUnix: 100.0,
             preRollStartUnix: 98.0,
             actualVideoStartUnix: 98.5,
             syncFlashUnix: 100.0,
             createdUnix: 98.0
         )
-        let watchMetadata = VideoOverlayAlignment.WatchRecordingMetadata(
-            sessionID: "recording_20260329_172110",
+        let watchMetadata = WatchRecordingMetadata(
+            sessionID: sessionID,
             plannedStartUnix: 100.0,
             actualWatchStartUnix: 100.2,
-            requestedDeviceMotionInterval: 0.005,
             createdUnix: 100.2
         )
 
@@ -52,35 +24,32 @@ final class HurleyMetricTests: XCTestCase {
             phoneMetadata: phoneMetadata,
             watchMetadata: watchMetadata
         )
-
-        XCTAssertEqual(solution.watchToPhoneClockOffset, 0, accuracy: 0.000_001)
-        XCTAssertEqual(solution.actualVideoStartUnix, 98.5, accuracy: 0.000_001)
-
         let videoTimes = try VideoOverlayAlignment.sampleVideoTimes(
             sampleTimestamps: [100.2, 100.7, 101.2],
             phoneMetadata: phoneMetadata,
             watchMetadata: watchMetadata
         )
 
+        XCTAssertEqual(solution.watchToPhoneClockOffset, 0, accuracy: 0.000_001)
+        XCTAssertEqual(solution.actualVideoStartUnix, 98.5, accuracy: 0.000_001)
         XCTAssertEqual(videoTimes[0], 1.7, accuracy: 0.000_001)
         XCTAssertEqual(videoTimes[1], 2.2, accuracy: 0.000_001)
         XCTAssertEqual(videoTimes[2], 2.7, accuracy: 0.000_001)
     }
 
     func testAlignmentRejectsMismatchedSessionIDs() {
-        let phoneMetadata = VideoOverlayAlignment.PhoneRecordingMetadata(
-            sessionID: "recording_phone",
-            plannedStartUnix: 100.0,
-            preRollStartUnix: 98.0,
+        let phoneMetadata = PhoneRecordingMetadata(
+            sessionID: "00112233-4455-4677-8899-aabbccddeeff",
+            plannedStartUnix: 100,
+            preRollStartUnix: 98,
             actualVideoStartUnix: 98.5,
-            syncFlashUnix: 100.0,
-            createdUnix: 98.0
+            syncFlashUnix: 100,
+            createdUnix: 98
         )
-        let watchMetadata = VideoOverlayAlignment.WatchRecordingMetadata(
-            sessionID: "recording_watch",
-            plannedStartUnix: 100.0,
+        let watchMetadata = WatchRecordingMetadata(
+            sessionID: "10112233-4455-4677-8899-aabbccddeeff",
+            plannedStartUnix: 100,
             actualWatchStartUnix: 100.1,
-            requestedDeviceMotionInterval: 0.005,
             createdUnix: 100.1
         )
 
@@ -95,19 +64,19 @@ final class HurleyMetricTests: XCTestCase {
     }
 
     func testAlignmentRejectsMismatchedPlannedStart() {
-        let phoneMetadata = VideoOverlayAlignment.PhoneRecordingMetadata(
-            sessionID: "recording_20260329_172110",
-            plannedStartUnix: 100.0,
-            preRollStartUnix: 98.0,
+        let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
+        let phoneMetadata = PhoneRecordingMetadata(
+            sessionID: sessionID,
+            plannedStartUnix: 100,
+            preRollStartUnix: 98,
             actualVideoStartUnix: 98.5,
-            syncFlashUnix: 100.0,
-            createdUnix: 98.0
+            syncFlashUnix: 100,
+            createdUnix: 98
         )
-        let watchMetadata = VideoOverlayAlignment.WatchRecordingMetadata(
-            sessionID: "recording_20260329_172110",
+        let watchMetadata = WatchRecordingMetadata(
+            sessionID: sessionID,
             plannedStartUnix: 100.2,
             actualWatchStartUnix: 100.1,
-            requestedDeviceMotionInterval: 0.005,
             createdUnix: 100.1
         )
 
@@ -121,66 +90,91 @@ final class HurleyMetricTests: XCTestCase {
         }
     }
 
-    func testMetadataCanBeLoadedFromJSONFiles() throws {
-        let directoryURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directoryURL) }
+    func testBinaryReaderLoadsBothNativeStreamsAndPreserves800HzSamples() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
 
-        let phoneURL = directoryURL.appendingPathComponent("recording_20260329_172110.phone.json")
-        let watchURL = directoryURL.appendingPathComponent("recording_20260329_172110.watch.json")
-
-        try """
-        {
-          "sessionID": "recording_20260329_172110",
-          "plannedStartUnix": 100.0,
-          "preRollStartUnix": 98.0,
-          "actualVideoStartUnix": 98.5,
-          "syncFlashUnix": 100.0,
-          "createdUnix": 98.0
-        }
-        """.write(to: phoneURL, atomically: true, encoding: .utf8)
-
-        try """
-        {
-          "sessionID": "recording_20260329_172110",
-          "plannedStartUnix": 100.0,
-          "actualWatchStartUnix": 100.2,
-          "requestedDeviceMotionInterval": 0.005,
-          "createdUnix": 100.2
-        }
-        """.write(to: watchURL, atomically: true, encoding: .utf8)
-
-        let phoneMetadata = try VideoOverlayAlignment.loadPhoneMetadata(from: phoneURL)
-        let watchMetadata = try VideoOverlayAlignment.loadWatchMetadata(from: watchURL)
-        let videoTimes = try VideoOverlayAlignment.sampleVideoTimes(
-            sampleTimestamps: [100.7],
-            phoneMetadata: phoneMetadata,
-            watchMetadata: watchMetadata
+        let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
+        let deviceURL = directory.appendingPathComponent(
+            WatchRecordingAssetNaming.deviceMotionFileName(sessionID: sessionID)
+        )
+        let rawURL = directory.appendingPathComponent(
+            WatchRecordingAssetNaming.rawAccelerometerFileName(sessionID: sessionID)
+        )
+        let metadataURL = directory.appendingPathComponent(
+            WatchRecordingAssetNaming.metadataFileName(sessionID: sessionID)
         )
 
-        XCTAssertEqual(phoneMetadata.sessionID, "recording_20260329_172110")
-        XCTAssertEqual(watchMetadata.sessionID, "recording_20260329_172110")
-        XCTAssertEqual(videoTimes.count, 1)
-        XCTAssertEqual(videoTimes[0], 2.2, accuracy: 0.000_001)
+        let deviceWriter = try WatchMotionBinaryFileWriter(
+            stream: .deviceMotion,
+            fileURL: deviceURL,
+            sessionID: sessionID
+        )
+        let rawWriter = try WatchMotionBinaryFileWriter(
+            stream: .rawAccelerometer,
+            fileURL: rawURL,
+            sessionID: sessionID
+        )
+
+        for index in 0..<3 {
+            try deviceWriter.append(WatchDeviceMotionBinaryRecord(
+                timestampUnixMicroseconds: 1_700_000_000_000_000 + Int64(index * 5_000),
+                userAccelerationX: Double(index),
+                userAccelerationY: 0,
+                userAccelerationZ: 0,
+                rotationRateX: 0,
+                rotationRateY: 0,
+                rotationRateZ: 0,
+                gravityX: 0,
+                gravityY: 0,
+                gravityZ: 1,
+                quaternionW: 1,
+                quaternionX: 0,
+                quaternionY: 0,
+                quaternionZ: 0
+            ))
+        }
+        for index in 0..<9 {
+            try rawWriter.append(WatchRawAccelerometerBinaryRecord(
+                timestampUnixMicroseconds: 1_700_000_000_000_000 + Int64(index * 1_250),
+                rawAccelerationX: Double(index),
+                rawAccelerationY: 0,
+                rawAccelerationZ: 1
+            ))
+        }
+
+        let deviceSummary = try deviceWriter.finalize(actualFrequencyHz: 200)
+        let rawSummary = try rawWriter.finalize(actualFrequencyHz: 800)
+        let metadata = WatchRecordingMetadata(
+            sessionID: sessionID,
+            plannedStartUnix: 1_700_000_000,
+            actualWatchStartUnix: 1_700_000_000,
+            createdUnix: 1_700_000_000
+        ).finalized(deviceMotion: deviceSummary, rawAccelerometer: rawSummary)
+        try JSONEncoder().encode(metadata).write(to: metadataURL)
+
+        let recording = RecordingSession(
+            id: sessionID,
+            createdAt: Date(),
+            deviceMotionURL: deviceURL,
+            rawAccelerometerURL: rawURL,
+            audioURL: nil,
+            videoURL: nil,
+            phoneMetadataURL: nil,
+            watchMetadataURL: metadataURL
+        )
+        let decoded = try BinaryMotionReader().read(recording: recording)
+
+        XCTAssertEqual(decoded.deviceMotion.count, 3)
+        XCTAssertEqual(decoded.rawAcceleration.count, 9)
+        XCTAssertEqual(decoded.deviceMotion[1].ax, 1, accuracy: 0.000_001)
+        XCTAssertEqual(decoded.rawAcceleration[8].timestamp - decoded.rawAcceleration[0].timestamp, 0.01, accuracy: 0.000_001)
     }
 
-    private func fixtureURL(named name: String, ext: String) throws -> URL {
-        let directoryURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-        let fileURL = directoryURL.appendingPathComponent(name).appendingPathExtension(ext)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path), "Missing fixture: \(fileURL.lastPathComponent)")
-        return fileURL
-    }
-
-    private func loadFixtureTimestamps(from url: URL, limit: Int) throws -> [Double] {
-        let contents = try String(contentsOf: url, encoding: .utf8)
-        return contents
-            .split(whereSeparator: \.isNewline)
-            .dropFirst()
-            .prefix(limit)
-            .compactMap { row in
-                row.split(separator: ",", omittingEmptySubsequences: false).first.flatMap { Double($0) }
-            }
+    private func makeTemporaryDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HurleyMetricTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 }

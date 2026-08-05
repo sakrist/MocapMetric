@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import struct
 import subprocess
+import uuid
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,8 +23,8 @@ DEFAULT_PLOT_MODE = "accel_xyz"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Overlay acceleration graph from a CSV onto a video with a moving playhead. "
-            "Offset is applied so CSV and video timelines can be aligned."
+            "Overlay binary motion data onto a video with a moving playhead. "
+            "The versioned Watch binary timestamps are used for alignment."
         )
     )
     parser.add_argument(
@@ -31,10 +33,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Recording stem (for example: recording_20260329_172110). "
-            "When set, script auto-finds CSV/VIDEO/SIDECARS by stem."
+            "When set, script auto-finds binary motion/video/sidecars by stem."
         ),
     )
-    parser.add_argument("--csv", type=Path, default=None, help="Path to sensor CSV.")
+    parser.add_argument("--device-motion", type=Path, default=None, help="Path to the 200 Hz device-motion binary.")
+    parser.add_argument("--raw-accelerometer", type=Path, default=None, help="Path to the 800 Hz raw-accelerometer binary.")
     parser.add_argument("--video", type=Path, default=None, help="Path to source video.")
     parser.add_argument(
         "--search-dir",
@@ -57,8 +60,8 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=None,
         help=(
-            "Manual offset in seconds from video start to CSV start. "
-            "Positive means CSV starts after video."
+            "Manual offset in seconds from video start to motion start. "
+            "Positive means motion starts after video."
         ),
     )
     parser.add_argument(
@@ -67,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Manual video start timestamp (Unix epoch seconds). "
-            "When set, offset is computed from CSV first timestamp minus this value."
+            "When set, offset is computed from motion first timestamp minus this value."
         ),
     )
     parser.add_argument(
@@ -101,9 +104,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--plot-mode",
         type=str,
-        choices=["accel_xyz", "gravity_xyz", "accel_gyro_mag"],
+        choices=["accel_xyz", "gravity_xyz", "accel_gyro_mag", "raw_accel_xyz"],
         default=DEFAULT_PLOT_MODE,
-        help="Series to plot: 'accel_xyz' (ax/ay/az) or 'accel_gyro_mag' (|acc| and |gyro|).",
+        help="Series to plot from device motion, or raw_accel_xyz for the 800 Hz binary.",
     )
     parser.add_argument("--indicator-color", type=str, default="0xFF3B30", help="Playhead color for ffmpeg.")
     parser.add_argument("--indicator-width-px", type=int, default=4, help="Playhead width in pixels.")
@@ -182,6 +185,15 @@ def get_str_field(payload: dict[str, object] | None, key: str) -> str | None:
     return None
 
 
+def session_ids_match(lhs: str | None, rhs: str | None) -> bool:
+    if lhs is None or rhs is None:
+        return lhs == rhs
+    try:
+        return uuid.UUID(lhs) == uuid.UUID(rhs)
+    except ValueError:
+        return lhs == rhs
+
+
 def ffprobe_video_info(video_path: Path) -> dict[str, float | int | str | None]:
     output = run(
         [
@@ -251,13 +263,68 @@ def parse_creation_time_to_epoch(creation_time: str | None) -> float | None:
     return dt.timestamp()
 
 
-def load_csv(csv_path: Path) -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
-    required = {"timestamp", "ax", "ay", "az"}
-    missing = required.difference(df.columns)
-    if missing:
-        raise ValueError(f"CSV missing required columns: {sorted(missing)}")
-    return df
+DEVICE_HEADER = struct.Struct("<8sHHQ16sH26s")
+DEVICE_RECORD = struct.Struct("<q13f")
+RAW_HEADER = struct.Struct("<8sHHQ16sH26s")
+RAW_RECORD = struct.Struct("<q3f")
+
+
+def load_binary(binary_path: Path, stream: str) -> pd.DataFrame:
+    data = binary_path.read_bytes()
+    if stream == "device-motion":
+        header_struct = DEVICE_HEADER
+        record_struct = DEVICE_RECORD
+        expected_magic = b"WMRDM001"
+        expected_record_size = 60
+        expected_frequency = 200
+        columns = [
+            "timestamp",
+            "ax", "ay", "az",
+            "gx", "gy", "gz",
+            "grx", "gry", "grz",
+            "qw", "qx", "qy", "qz",
+        ]
+    elif stream == "raw-accelerometer":
+        header_struct = RAW_HEADER
+        record_struct = RAW_RECORD
+        expected_magic = b"WMRRA001"
+        expected_record_size = 20
+        expected_frequency = 800
+        columns = ["timestamp", "ax", "ay", "az"]
+    else:
+        raise ValueError(f"Unsupported binary stream: {stream}")
+
+    if len(data) < header_struct.size:
+        raise ValueError(f"Binary header is truncated: {binary_path}")
+    magic, version, record_size, sample_count, _session_uuid, frequency, _reserved = header_struct.unpack_from(data)
+    if magic != expected_magic:
+        raise ValueError(f"Unexpected {stream} binary magic: {binary_path}")
+    if version != 1 or record_size != expected_record_size:
+        raise ValueError(f"Unsupported {stream} binary format: version={version}, record_size={record_size}")
+    if frequency != expected_frequency:
+        raise ValueError(f"Expected {stream} binary at {expected_frequency} Hz, got {frequency} Hz")
+    expected_size = header_struct.size + sample_count * record_struct.size
+    if expected_size != len(data):
+        raise ValueError(
+            f"{stream} binary size does not match its header: expected {expected_size}, got {len(data)}"
+        )
+    if sample_count == 0:
+        raise ValueError(f"{stream} binary contains no samples")
+
+    rows: list[tuple[float, ...]] = []
+    previous_timestamp: int | None = None
+    for index in range(sample_count):
+        values = record_struct.unpack_from(data, header_struct.size + index * record_struct.size)
+        timestamp_us = int(values[0])
+        if previous_timestamp is not None and timestamp_us < previous_timestamp:
+            raise ValueError(f"{stream} binary timestamps are not monotonic")
+        previous_timestamp = timestamp_us
+        float_values = values[1:]
+        if not all(math.isfinite(value) for value in float_values):
+            raise ValueError(f"{stream} binary contains a non-finite value")
+        rows.append((timestamp_us / 1_000_000.0, *float_values))
+
+    return pd.DataFrame.from_records(rows, columns=columns)
 
 
 def validate_plot_columns(df: pd.DataFrame, plot_mode: str) -> None:
@@ -266,9 +333,11 @@ def validate_plot_columns(df: pd.DataFrame, plot_mode: str) -> None:
         required.update({"gx", "gy", "gz"})
     if plot_mode == "gravity_xyz":
         required.update({"grx", "gry", "grz"})
+    if plot_mode == "raw_accel_xyz":
+        required = {"timestamp", "ax", "ay", "az"}
     missing = required.difference(df.columns)
     if missing:
-        raise ValueError(f"CSV missing required columns for plot mode '{plot_mode}': {sorted(missing)}")
+        raise ValueError(f"Binary motion data missing required columns for plot mode '{plot_mode}': {sorted(missing)}")
 
 
 def dedupe_paths(paths: list[Path]) -> list[Path]:
@@ -282,15 +351,23 @@ def dedupe_paths(paths: list[Path]) -> list[Path]:
     return ordered
 
 
-def resolve_input_paths(args: argparse.Namespace) -> tuple[Path, Path]:
+def recording_stem(path: Path) -> str:
+    name = path.name
+    for suffix in (".device-motion.bin", ".raw-accelerometer.bin", ".phone.json", ".watch.json", ".mov"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
+def resolve_input_paths(args: argparse.Namespace) -> tuple[Path, Path | None, Path]:
     recording_token = args.recording or args.recording_stem
 
     if recording_token:
-        if args.csv is not None or args.video is not None:
-            raise SystemExit("Use recording stem mode OR --csv/--video mode, not both.")
+        if args.device_motion is not None or args.raw_accelerometer is not None or args.video is not None:
+            raise SystemExit("Use recording stem mode OR explicit binary/video paths, not both.")
 
         recording_path = Path(recording_token)
-        stem = recording_path.stem if recording_path.suffix else recording_path.name
+        stem = recording_stem(recording_path)
         root_stem_path = recording_path.with_suffix("")
 
         search_dirs: list[Path] = []
@@ -304,15 +381,20 @@ def resolve_input_paths(args: argparse.Namespace) -> tuple[Path, Path]:
         video_extensions = [".mov", ".mp4", ".m4v", ".avi", ".mkv"]
         attempted: list[str] = []
         for directory in search_dirs:
-            csv_candidate = (directory / stem).with_suffix(".csv")
-            if not csv_candidate.exists():
-                attempted.append(str(csv_candidate))
+            device_candidate = directory / f"{stem}.device-motion.bin"
+            if not device_candidate.exists():
+                attempted.append(str(device_candidate))
                 continue
 
             for ext in video_extensions:
                 video_candidate = (directory / stem).with_suffix(ext)
                 if video_candidate.exists():
-                    return csv_candidate.resolve(), video_candidate.resolve()
+                    raw_candidate = directory / f"{stem}.raw-accelerometer.bin"
+                    return (
+                        device_candidate.resolve(),
+                        raw_candidate.resolve() if raw_candidate.exists() else None,
+                        video_candidate.resolve(),
+                    )
                 attempted.append(str(video_candidate))
 
         attempted_text = "\n".join(f"  - {path}" for path in attempted[:20])
@@ -320,19 +402,20 @@ def resolve_input_paths(args: argparse.Namespace) -> tuple[Path, Path]:
             f"Could not auto-resolve recording '{stem}'. Tried paths such as:\n{attempted_text}"
         )
 
-    if args.csv is None or args.video is None:
-        raise SystemExit("Provide a recording stem (--recording or positional) OR both --csv and --video.")
-    return args.csv.resolve(), args.video.resolve()
+    if args.device_motion is None or args.video is None:
+        raise SystemExit("Provide a recording stem (--recording or positional) OR --device-motion and --video.")
+    raw_path = args.raw_accelerometer.resolve() if args.raw_accelerometer is not None else None
+    return args.device_motion.resolve(), raw_path, args.video.resolve()
 
 
 def choose_offset_sec(
-    csv_df: pd.DataFrame,
+    motion_df: pd.DataFrame,
     video_info: dict[str, float | int | str | None],
     args: argparse.Namespace,
     phone_meta: dict[str, object] | None,
     watch_meta: dict[str, object] | None,
 ) -> tuple[float, str, dict[str, float | str | None]]:
-    csv_first_epoch = float(csv_df["timestamp"].iloc[0])
+    motion_first_epoch = float(motion_df["timestamp"].iloc[0])
     video_start_epoch: float | None = None
     planned_delta_phone_minus_watch: float | None = None
     planned_minus_watch_actual: float | None = None
@@ -357,7 +440,7 @@ def choose_offset_sec(
                 and watch_meta is not None
                 and phone_session_id is not None
                 and watch_session_id is not None
-                and phone_session_id != watch_session_id
+                and not session_ids_match(phone_session_id, watch_session_id)
             ):
                 raise ValueError(
                     "Phone/watch sidecars disagree about sessionID: "
@@ -395,11 +478,11 @@ def choose_offset_sec(
         if video_start_epoch is None:
             offset = 0.0
         else:
-            offset = csv_first_epoch - video_start_epoch
+            offset = motion_first_epoch - video_start_epoch
 
     total = offset + float(args.extra_offset_sec)
     details: dict[str, float | str | None] = {
-        "csv_first_epoch": csv_first_epoch,
+        "motion_first_epoch": motion_first_epoch,
         "video_start_epoch": video_start_epoch,
         "video_start_source": source,
         "planned_delta_phone_minus_watch": planned_delta_phone_minus_watch,
@@ -416,7 +499,7 @@ def choose_offset_sec(
 
 
 def make_graph_image(
-    csv_df: pd.DataFrame,
+    motion_df: pd.DataFrame,
     graph_path: Path,
     video_duration_sec: float,
     graph_image_w_px: int,
@@ -432,13 +515,13 @@ def make_graph_image(
     y_scale_mode: str,
     line_width: float,
 ) -> None:
-    timestamps = csv_df["timestamp"].to_numpy(dtype=np.float64)
+    timestamps = motion_df["timestamp"].to_numpy(dtype=np.float64)
     t_local = timestamps - timestamps[0]
     t_video = t_local + offset_sec
 
-    ax_values = csv_df["ax"].to_numpy(dtype=np.float64)
-    ay_values = csv_df["ay"].to_numpy(dtype=np.float64)
-    az_values = csv_df["az"].to_numpy(dtype=np.float64)
+    ax_values = motion_df["ax"].to_numpy(dtype=np.float64)
+    ay_values = motion_df["ay"].to_numpy(dtype=np.float64)
+    az_values = motion_df["az"].to_numpy(dtype=np.float64)
     series_arrays: list[np.ndarray] = []
 
     dpi = 120
@@ -448,9 +531,9 @@ def make_graph_image(
     fig.patch.set_alpha(0.0)
     ax.set_facecolor((0.0, 0.0, 0.0, 0.0))
     if plot_mode == "accel_gyro_mag":
-        gx_values = csv_df["gx"].to_numpy(dtype=np.float64)
-        gy_values = csv_df["gy"].to_numpy(dtype=np.float64)
-        gz_values = csv_df["gz"].to_numpy(dtype=np.float64)
+        gx_values = motion_df["gx"].to_numpy(dtype=np.float64)
+        gy_values = motion_df["gy"].to_numpy(dtype=np.float64)
+        gz_values = motion_df["gz"].to_numpy(dtype=np.float64)
         acc_mag_values = np.sqrt(ax_values**2 + ay_values**2 + az_values**2)
         gyro_mag_values = np.sqrt(gx_values**2 + gy_values**2 + gz_values**2)
         ax.plot(t_video, acc_mag_values, color=acc_mag_color, linewidth=line_width, alpha=0.98, label="acc_mag")
@@ -459,9 +542,9 @@ def make_graph_image(
         y_label = "magnitude"
         legend_cols = 2
     elif plot_mode == "gravity_xyz":
-        grx_values = csv_df["grx"].to_numpy(dtype=np.float64)
-        gry_values = csv_df["gry"].to_numpy(dtype=np.float64)
-        grz_values = csv_df["grz"].to_numpy(dtype=np.float64)
+        grx_values = motion_df["grx"].to_numpy(dtype=np.float64)
+        gry_values = motion_df["gry"].to_numpy(dtype=np.float64)
+        grz_values = motion_df["grz"].to_numpy(dtype=np.float64)
         ax.plot(t_video, grx_values, color=ax_color, linewidth=line_width, alpha=0.98, label="grx")
         ax.plot(t_video, gry_values, color=ay_color, linewidth=line_width, alpha=0.98, label="gry")
         ax.plot(t_video, grz_values, color=az_color, linewidth=line_width, alpha=0.98, label="grz")
@@ -473,7 +556,7 @@ def make_graph_image(
         ax.plot(t_video, ay_values, color=ay_color, linewidth=line_width, alpha=0.98, label="ay")
         ax.plot(t_video, az_values, color=az_color, linewidth=line_width, alpha=0.98, label="az")
         series_arrays = [ax_values, ay_values, az_values]
-        y_label = "g"
+        y_label = "g (raw 800 Hz)" if plot_mode == "raw_accel_xyz" else "g"
         legend_cols = 3
 
     if y_scale_mode == "normalize":
@@ -622,16 +705,28 @@ def rotation_filter(rotation_deg: int) -> str | None:
 
 def main() -> None:
     args = parse_args()
-    csv_path, video_path = resolve_input_paths(args)
+    device_motion_path, raw_accelerometer_path, video_path = resolve_input_paths(args)
     output_path = (
         args.output.resolve()
         if args.output is not None
         else video_path.with_name(f"{video_path.stem}-accel-overlay.mp4")
     )
-    print(f"Resolved files: csv={csv_path.name}, video={video_path.name}")
+    if args.plot_mode == "raw_accel_xyz":
+        if raw_accelerometer_path is None:
+            raise FileNotFoundError("raw_accel_xyz requires the 800 Hz raw-accelerometer binary")
+        motion_path = raw_accelerometer_path
+        motion_stream = "raw-accelerometer"
+    else:
+        motion_path = device_motion_path
+        motion_stream = "device-motion"
+    print(
+        f"Resolved files: device_motion={device_motion_path.name}, "
+        f"raw_accelerometer={raw_accelerometer_path.name if raw_accelerometer_path else 'missing'}, "
+        f"video={video_path.name}"
+    )
 
-    csv_df = load_csv(csv_path)
-    validate_plot_columns(csv_df, args.plot_mode)
+    motion_df = load_binary(motion_path, motion_stream)
+    validate_plot_columns(motion_df, args.plot_mode)
     video_info = ffprobe_video_info(video_path)
     phone_sidecar_path = video_path.with_suffix(".phone.json")
     watch_sidecar_path = video_path.with_suffix(".watch.json")
@@ -657,7 +752,7 @@ def main() -> None:
     graph_image_w = ensure_positive_int(video_duration * graph_px_per_sec, graph_w)
 
     offset_sec, offset_source, sync_details = choose_offset_sec(
-        csv_df=csv_df,
+        motion_df=motion_df,
         video_info=video_info,
         args=args,
         phone_meta=phone_meta,
@@ -694,13 +789,13 @@ def main() -> None:
         print(
             "Sync timestamps: "
             f"video_start={float(sync_details['video_start_epoch']):.6f}, "
-            f"csv_first={float(sync_details['csv_first_epoch']):.6f}"
+            f"motion_first={float(sync_details['motion_first_epoch']):.6f}"
         )
     else:
-        print(f"Sync timestamps: csv_first={float(sync_details['csv_first_epoch']):.6f} (video start unavailable)")
+        print(f"Sync timestamps: motion_first={float(sync_details['motion_first_epoch']):.6f} (video start unavailable)")
     if sync_details["watch_actual_start"] is not None:
-        csv_minus_watch = float(sync_details["csv_first_epoch"]) - float(sync_details["watch_actual_start"])
-        print(f"Watch check: csv_first - actualWatchStartUnix = {csv_minus_watch:+.6f}s")
+        motion_minus_watch = float(sync_details["motion_first_epoch"]) - float(sync_details["watch_actual_start"])
+        print(f"Watch check: motion_first - actualWatchStartUnix = {motion_minus_watch:+.6f}s")
     if sync_details["planned_delta_phone_minus_watch"] is not None:
         print(
             "Planned check: "
@@ -718,7 +813,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="accel_overlay_") as tmp_dir:
         graph_path = Path(tmp_dir) / "acceleration_graph.png"
         make_graph_image(
-            csv_df=csv_df,
+            motion_df=motion_df,
             graph_path=graph_path,
             video_duration_sec=video_duration,
             graph_image_w_px=graph_image_w,

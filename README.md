@@ -6,24 +6,34 @@ HurleyMetric records Apple Watch motion data and audio, optionally records iPhon
 
 Each recording session can contain:
 
-- Watch CSV: `recording_<session>.csv`
+- Watch device motion: `recording_<session>.device-motion.bin` (200 Hz)
+- Watch raw acceleration: `recording_<session>.raw-accelerometer.bin` (800 Hz)
 - Watch audio: `recording_<session>.m4a`
 - iPhone video: `recording_<session>.mov`
 - Watch sync sidecar: `recording_<session>.watch.json`
 - iPhone sync sidecar: `recording_<session>.phone.json`
 
-## CSV Format
+The two binary streams use the versioned `WatchMotionRecordingKit` contract:
 
-The watch writes this header:
+- 64-byte little-endian header
+- 60-byte Float32 device-motion records
+- 20-byte Float32 raw-accelerometer records
+- UUID session identity, sample count, native frequency, and integrity data
 
-`timestamp,ax,ay,az,gx,gy,gz,grx,gry,grz`
+Device motion is recorded at 200 Hz and raw acceleration independently at 800
+Hz. Their timestamps are not row-aligned. The iPhone uses the measured 200 Hz
+stream for review and sends its deterministic `0, 2, 4, ...` view to the
+existing nominal-100 Hz strike model. Raw acceleration is retained and shown
+in the high-frequency review graph.
 
-Columns:
+HurleyMetric does not parse or generate CSV as part of the app recording path.
 
-- `timestamp`: watch-side Unix seconds
-- `ax, ay, az`: user acceleration
-- `gx, gy, gz`: gyroscope rotation rate
-- `grx, gry, grz`: gravity vector
+## Sync metadata
+
+The Watch sidecar is finalized only after both binary streams are closed. It
+contains the asset filenames, byte counts, SHA-256 hashes, format versions,
+sample counts, actual frequencies, and start timing. Audio is optional and is
+not required for motion analysis.
 
 ## Recording Flow
 
@@ -42,21 +52,22 @@ The current sync flow is:
    - `actualVideoStartUnix` initially `null`
    - `syncFlashUnix`
 8. iPhone shows a sync flash at `plannedStartUnix`.
-9. Watch receives `plannedStartUnix` and starts motion/audio pre-roll locally.
+9. Watch receives `plannedStartUnix`, starts motion pre-roll, and schedules
+   audio for the same sync point locally.
 10. Watch discards motion samples whose computed Unix timestamp is before `plannedStartUnix`.
 11. Watch writes `recording_<session>.watch.json` with:
     - `sessionID`
     - `plannedStartUnix`
     - `actualWatchStartUnix`
-    - `requestedDeviceMotionInterval`
+    - finalized binary filenames, counts, sizes, hashes, and frequencies
 12. Watch starts:
     - motion delivery before the sync point
     - watch microphone recording scheduled against the same wall-clock start
     - one watch wall-clock anchor is captured on the first motion sample
-    - later CSV timestamps are derived from `CMDeviceMotion.timestamp` deltas
-    - only samples at or after `plannedStartUnix` are written to CSV
+    - later binary timestamps are derived from Core Motion timestamps
+    - only samples at or after `plannedStartUnix` are written to the binaries
 13. iPhone now writes `actualVideoStartUnix` when the first actual video frame is observed through `AVCaptureVideoDataOutput`.
-14. When recording stops, watch transfers CSV, audio, and watch sidecar to iPhone.
+14. When recording stops, Watch finalizes and transfers both binaries, audio, and the Watch sidecar to iPhone.
 15. iPhone groups all files by `sessionID` and shows the session in the recordings list.
 
 ## Meaning Of The Sidecars
@@ -71,8 +82,8 @@ The current sync flow is:
 `recording_<session>.watch.json`:
 
 - `plannedStartUnix`: same planned time received from iPhone
-- `actualWatchStartUnix`: Unix time of the first motion sample that was kept and written to CSV
-- `requestedDeviceMotionInterval`: requested Core Motion interval
+- `actualWatchStartUnix`: Unix time of the first motion sample that was kept and written to a binary
+- binary asset details and measured 200/800 Hz frequencies
 
 ## How Export Alignment Works
 
@@ -86,7 +97,7 @@ Current alignment model:
 
 `actualVideoStartUnix = phone.actualVideoStartUnix`
 
-4. Convert each watch CSV sample into iPhone video-relative time:
+4. Convert each watch binary sample timestamp into iPhone video-relative time:
 
 `videoRelativeTime = sample.timestamp - phone.actualVideoStartUnix`
 
@@ -105,18 +116,19 @@ So the app now uses watch sidecars for validation and diagnostics, but anchors t
 External tools should:
 
 1. Read:
-   - CSV
+   - device-motion binary
+   - raw-accelerometer binary
    - `recording_<session>.phone.json`
    - `recording_<session>.watch.json`
-2. Parse the first CSV column as watch-side Unix seconds.
+2. Read the Unix-microsecond timestamp from each binary record.
 3. Validate:
 
 - `phone.sessionID == watch.sessionID`
 - `abs(phone.plannedStartUnix - watch.plannedStartUnix)` is small
 
-4. Convert every CSV timestamp:
+4. Convert every binary timestamp:
 
-`phoneEquivalentUnix = csvTimestamp`
+`phoneEquivalentUnix = timestampUnixMicroseconds / 1_000_000`
 
 5. Convert to video timeline:
 
@@ -130,7 +142,7 @@ The same data can also be used to trim or offset video in external tools.
 
 The current sync path is better than a simple `sample.timestamp - actualVideoStartUnix` model, but it still has error sources:
 
-1. Watch CSV timestamps now use one wall-clock anchor plus `CMDeviceMotion.timestamp` deltas.
+1. Watch binary timestamps use one wall-clock anchor plus Core Motion timestamps.
    - This removes per-sample callback jitter.
    - Watch motion now pre-rolls before the agreed sync time, so first-kept-sample latency is reduced versus starting Core Motion exactly at the target instant.
    - The remaining watch-side error is still tied to the first anchor callback timing.
@@ -143,7 +155,7 @@ The current sync path is better than a simple `sample.timestamp - actualVideoSta
 
 If the goal is lower sync error, the highest-value changes are:
 
-1. The watch now uses Core Motion relative timestamps for CSV samples and pre-rolls motion before the agreed sync point.
+1. The watch uses Core Motion relative timestamps for binary samples and pre-rolls motion before the agreed sync point.
    - Remaining improvement would be to tighten the first sample anchor further or store extra timing anchors in metadata.
 2. Keep the current phone first-frame anchor.
    - This is already better than the old movie-output callback timestamp.
@@ -175,9 +187,13 @@ That keeps the architecture understandable while removing the largest per-sample
 
 ## Key Files
 
-- Watch recorder: `HurleyMetricWatch Watch App/AccelerometerLogger.swift`
-- Watch transfer: `HurleyMetricWatch Watch App/WatchRecordingTransferManager.swift`
+- Reusable watch recorder: `Packages/WatchMotionRecordingKit/Sources/WatchMotionRecordingKit/WatchRecordingCoordinator.swift`
+- Reusable watch transport: `Packages/WatchMotionRecordingKit/Sources/WatchMotionRecordingKit/WatchRecordingTransport.swift`
+- Watch compatibility alias: `HurleyMetricWatch Watch App/AccelerometerLogger.swift`
+- Watch transport alias: `HurleyMetricWatch Watch App/WatchRecordingTransferManager.swift`
 - iPhone recorder: `HurleyMetric/PhoneVideoRecorder.swift`
 - iPhone inbox/receiver: `HurleyMetric/RecordingInboxStore.swift`
+- Binary motion decoding and validation: `HurleyMetric/BinaryMotionReader.swift`
 - iPhone export alignment: `HurleyMetric/VideoOverlayExporter.swift`
+- External binary overlay tool: `HurleyMetric/overlay_acceleration_graph.py`
 - iPhone recordings UI: `HurleyMetric/ContentView.swift`

@@ -1,18 +1,18 @@
 import SwiftUI
+import WatchMotionRecordingKit
 
 struct ContentView: View {
-    @StateObject private var logger = AccelerometerLogger()
-    @State private var showGraph = true
+    @StateObject private var recorder = WatchRecordingCoordinator(
+        configuration: WatchRecordingConfiguration(recordsAudio: true)
+    )
+    @StateObject private var workoutSession = WatchWorkoutSessionManager()
+    @State private var showGraph = false
 
     var body: some View {
         VStack(spacing: 8) {
             HStack {
-                Button(logger.isRecording ? "Stop" : "Start") {
-                    if logger.isRecording {
-                        logger.stopLogging()
-                    } else {
-                        logger.startLogging()
-                    }
+                Button(recorder.isRecording ? "Stop" : "Start") {
+                    toggleRecording()
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -22,7 +22,7 @@ struct ContentView: View {
                     .labelsHidden()
             }
 
-            if logger.isArmed, let countdown = logger.countdownSecondsRemaining {
+            if recorder.isArmed, let countdown = recorder.countdownSecondsRemaining {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(.yellow)
@@ -40,7 +40,7 @@ struct ContentView: View {
                     Text("Accel")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Text(logger.latestAccelMagnitude, format: .number.precision(.fractionLength(2)))
+                    Text(recorder.latestAccelMagnitude, format: .number.precision(.fractionLength(2)))
                         .font(.caption)
                         .monospacedDigit()
                 }
@@ -49,14 +49,14 @@ struct ContentView: View {
                     Text("Gyro")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Text(logger.latestGyroMagnitude, format: .number.precision(.fractionLength(2)))
+                    Text(recorder.latestGyroMagnitude, format: .number.precision(.fractionLength(2)))
                         .font(.caption)
                         .monospacedDigit()
                 }
 
                 Spacer()
 
-                Text("\(logger.sampleCount)")
+                Text("\(recorder.sampleCount)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -64,18 +64,54 @@ struct ContentView: View {
 
             if showGraph {
                 MagnitudeGraphView(
-                    accelPoints: logger.recentAccelMagnitudes,
-                    gyroPoints: logger.recentGyroMagnitudes
+                    accelPoints: recorder.recentAccelMagnitudes,
+                    gyroPoints: recorder.recentGyroMagnitudes
                 )
                 .frame(height: 90)
             }
 
-            Text(logger.statusMessage)
+            Text(recorder.statusMessage)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let workoutErrorMessage = workoutSession.lastErrorMessage {
+                Text(workoutErrorMessage)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(8)
+        .onAppear {
+            recorder.setLiveGraphEnabled(showGraph)
+        }
+        .onChange(of: showGraph) { _, isVisible in
+            recorder.setLiveGraphEnabled(isVisible)
+        }
+        .onChange(of: recorder.isRecording) { _, isRecording in
+            if !isRecording {
+                workoutSession.endIfNeeded()
+            }
+        }
+        .onChange(of: recorder.statusMessage) { _, _ in
+            if !recorder.isRecording, workoutSession.isWorkoutActive {
+                workoutSession.endIfNeeded()
+            }
+        }
+    }
+
+    private func toggleRecording() {
+        if recorder.isRecording {
+            recorder.stopRecording()
+            workoutSession.endIfNeeded()
+            return
+        }
+
+        Task {
+            guard await workoutSession.startIfNeeded() else { return }
+            recorder.startRecording()
+        }
     }
 }
 
@@ -84,22 +120,26 @@ private struct MagnitudeGraphView: View {
     let gyroPoints: [Double]
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.thinMaterial)
+        Canvas(rendersAsynchronously: true) { context, size in
+            let rect = CGRect(origin: .zero, size: size)
+            context.fill(
+                Path(roundedRect: rect, cornerRadius: 8),
+                with: .color(.secondary.opacity(0.14))
+            )
 
-                if !accelPoints.isEmpty || !gyroPoints.isEmpty {
-                    let maxValue = max(accelPoints.max() ?? 0, gyroPoints.max() ?? 0, 0.001)
+            guard !accelPoints.isEmpty || !gyroPoints.isEmpty else { return }
 
-                    GraphLine(points: accelPoints, maxValue: maxValue)
-                        .stroke(.green, lineWidth: 2)
-
-                    GraphLine(points: gyroPoints, maxValue: maxValue)
-                        .stroke(.orange, lineWidth: 2)
-                }
-            }
-            .frame(width: geometry.size.width, height: geometry.size.height)
+            let maxValue = max(accelPoints.max() ?? 0, gyroPoints.max() ?? 0, 0.001)
+            context.stroke(
+                GraphLine(points: accelPoints, maxValue: maxValue).path(in: rect),
+                with: .color(.green),
+                lineWidth: 2
+            )
+            context.stroke(
+                GraphLine(points: gyroPoints, maxValue: maxValue).path(in: rect),
+                with: .color(.orange),
+                lineWidth: 2
+            )
         }
     }
 }

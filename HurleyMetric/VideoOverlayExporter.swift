@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import SwiftUI
+import WatchMotionRecordingKit
 
 enum VideoOverlayExporterError: LocalizedError, Equatable {
     case missingVideo
@@ -33,25 +34,19 @@ struct ExportGraphSeries {
     let title: String
     let color: UIColor
     let values: [Double]
+    let timestamps: [Double]?
+
+    init(title: String, color: UIColor, values: [Double], timestamps: [Double]? = nil) {
+        self.title = title
+        self.color = color
+        self.values = values
+        self.timestamps = timestamps
+    }
 }
 
 struct VideoOverlayAlignment {
-    struct WatchRecordingMetadata: Decodable {
-        let sessionID: String
-        let plannedStartUnix: Double
-        let actualWatchStartUnix: Double
-        let requestedDeviceMotionInterval: Double
-        let createdUnix: Double
-    }
-
-    struct PhoneRecordingMetadata: Decodable {
-        let sessionID: String
-        let plannedStartUnix: Double
-        let preRollStartUnix: Double
-        let actualVideoStartUnix: Double?
-        let syncFlashUnix: Double
-        let createdUnix: Double
-    }
+    typealias WatchRecordingMetadata = WatchMotionRecordingKit.WatchRecordingMetadata
+    typealias PhoneRecordingMetadata = WatchMotionRecordingKit.PhoneRecordingMetadata
 
     struct Solution {
         let watchToPhoneClockOffset: Double
@@ -62,7 +57,7 @@ struct VideoOverlayAlignment {
         phoneMetadata: PhoneRecordingMetadata,
         watchMetadata: WatchRecordingMetadata
     ) throws -> Solution {
-        guard phoneMetadata.sessionID == watchMetadata.sessionID else {
+        guard sessionIDsMatch(phoneMetadata.sessionID, watchMetadata.sessionID) else {
             throw VideoOverlayExporterError.mismatchedSessionID
         }
         guard abs(phoneMetadata.plannedStartUnix - watchMetadata.plannedStartUnix) <= 0.050 else {
@@ -76,6 +71,13 @@ struct VideoOverlayAlignment {
             watchToPhoneClockOffset: 0,
             actualVideoStartUnix: actualVideoStartUnix
         )
+    }
+
+    private static func sessionIDsMatch(_ lhs: String, _ rhs: String) -> Bool {
+        guard let lhs = UUID(uuidString: lhs), let rhs = UUID(uuidString: rhs) else {
+            return lhs == rhs
+        }
+        return lhs == rhs
     }
 
     static func sampleVideoTimes(
@@ -135,13 +137,18 @@ final class VideoOverlayExporter {
             throw VideoOverlayExporterError.missingVideo
         }
 
-        let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-        try compositionVideoTrack?.insertTimeRange(
+        guard let compositionVideoTrack = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw VideoOverlayExporterError.exportFailed
+        }
+        try compositionVideoTrack.insertTimeRange(
             CMTimeRange(start: .zero, duration: asset.duration),
             of: videoTrack,
             at: .zero
         )
-        compositionVideoTrack?.preferredTransform = videoTrack.preferredTransform
+        compositionVideoTrack.preferredTransform = videoTrack.preferredTransform
 
         if let audioTrack = try await asset.loadTracks(withMediaType: .audio).first {
             let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
@@ -160,7 +167,7 @@ final class VideoOverlayExporter {
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration)
 
-        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack!)
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
         layerInstruction.setTransform(videoTrack.preferredTransform, at: .zero)
         instruction.layerInstructions = [layerInstruction]
         videoComposition.instructions = [instruction]
@@ -255,7 +262,7 @@ final class VideoOverlayExporter {
         addGrid(to: graphContainer)
 
         let sampleVideoTimes = sampleVideoTimes(
-            samples: samples,
+            timestamps: series.first?.timestamps ?? samples.map(\.timestamp),
             alignment: alignment
         )
         let pixelsPerSecond = graphFrame.width / visibleWindowSeconds
@@ -322,10 +329,10 @@ final class VideoOverlayExporter {
     }
 
     private func sampleVideoTimes(
-        samples: [MotionSample],
+        timestamps: [Double],
         alignment: VideoOverlayAlignment.Solution
     ) -> [Double] {
-        samples.map { ($0.timestamp + alignment.watchToPhoneClockOffset) - alignment.actualVideoStartUnix }
+        timestamps.map { ($0 + alignment.watchToPhoneClockOffset) - alignment.actualVideoStartUnix }
     }
 
     private func renderGraphImage(

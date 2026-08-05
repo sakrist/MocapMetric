@@ -6,6 +6,7 @@ struct RecordingDetailView: View {
         case gyro = "Gyro"
         case gravity = "Gravity"
         case magnitude = "Magnitude"
+        case rawAcceleration = "Raw 800 Hz"
 
         var id: String { rawValue }
     }
@@ -15,6 +16,21 @@ struct RecordingDetailView: View {
         let title: String
         let color: Color
         let values: [Double]
+        let timestamps: [Double]?
+
+        init(
+            id: String,
+            title: String,
+            color: Color,
+            values: [Double],
+            timestamps: [Double]? = nil
+        ) {
+            self.id = id
+            self.title = title
+            self.color = color
+            self.values = values
+            self.timestamps = timestamps
+        }
     }
 
     let recording: RecordingSession
@@ -91,6 +107,12 @@ struct RecordingDetailView: View {
             } else {
                 Text("\(analysis?.hitRanges.count ?? 0) hits found")
                     .font(.title2.bold())
+
+                if let analysis {
+                    Text("\(analysis.samples.count) motion samples • \(analysis.rawAcceleration.count) raw samples")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Text(recording.createdAt, format: Date.FormatStyle(date: .abbreviated, time: .standard))
                     .font(.caption)
@@ -173,7 +195,13 @@ struct RecordingDetailView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isExportingVideo || recording.videoURL == nil || analysis == nil)
+            .disabled(
+                isExportingVideo ||
+                recording.videoURL == nil ||
+                recording.phoneMetadataURL == nil ||
+                recording.watchMetadataURL == nil ||
+                analysis == nil
+            )
 
             if let analysis {
                 ScrollView(.horizontal) {
@@ -182,6 +210,7 @@ struct RecordingDetailView: View {
                         hitRanges: analysis.hitRanges,
                         selectedHit: selectedHit,
                         series: graphSeries,
+                        graphTimestamps: graphSeries.first?.timestamps ?? analysis.samples.map(\.timestamp),
                         zoomScale: zoomScale,
                         onSelectHit: { hit in
                             selectedHit = hit
@@ -219,6 +248,13 @@ struct RecordingDetailView: View {
             return [
                 GraphSeries(id: "accMagnitude", title: "Accel Mag", color: .green, values: analysis.samples.map(\.accMagnitude)),
                 GraphSeries(id: "gyroMagnitude", title: "Gyro Mag", color: .orange, values: analysis.samples.map(\.gyroMagnitude)),
+            ]
+        case .rawAcceleration:
+            return [
+                GraphSeries(id: "rawAx", title: "raw ax", color: .red, values: analysis.rawAcceleration.map(\.ax), timestamps: analysis.rawAcceleration.map(\.timestamp)),
+                GraphSeries(id: "rawAy", title: "raw ay", color: .green, values: analysis.rawAcceleration.map(\.ay), timestamps: analysis.rawAcceleration.map(\.timestamp)),
+                GraphSeries(id: "rawAz", title: "raw az", color: .blue, values: analysis.rawAcceleration.map(\.az), timestamps: analysis.rawAcceleration.map(\.timestamp)),
+                GraphSeries(id: "rawMagnitude", title: "raw mag", color: .orange, values: analysis.rawAcceleration.map(\.magnitude), timestamps: analysis.rawAcceleration.map(\.timestamp)),
             ]
         }
     }
@@ -282,7 +318,8 @@ struct RecordingDetailView: View {
             ExportGraphSeries(
                 title: $0.title,
                 color: UIColor($0.color),
-                values: $0.values
+                values: $0.values,
+                timestamps: $0.timestamps
             )
         }
     }
@@ -304,6 +341,7 @@ private struct RecordingGraphView: View {
     let hitRanges: [HitRange]
     let selectedHit: HitRange?
     let series: [RecordingDetailView.GraphSeries]
+    let graphTimestamps: [Double]
     let zoomScale: Double
     let onSelectHit: (HitRange) -> Void
 
@@ -354,8 +392,18 @@ private struct RecordingGraphView: View {
     }
 
     private func xPosition(for sampleIndex: Int) -> CGFloat {
-        guard samples.count > 1 else { return 0 }
-        return (CGFloat(sampleIndex) / CGFloat(samples.count - 1)) * graphWidth
+        guard samples.indices.contains(sampleIndex) else { return 0 }
+        return xPosition(forTimestamp: samples[sampleIndex].timestamp)
+    }
+
+    private func xPosition(forTimestamp timestamp: Double) -> CGFloat {
+        guard let firstTimestamp = graphTimestamps.first,
+              let lastTimestamp = graphTimestamps.last,
+              lastTimestamp > firstTimestamp else {
+            return 0
+        }
+        let progress = (timestamp - firstTimestamp) / (lastTimestamp - firstTimestamp)
+        return CGFloat(min(max(progress, 0), 1)) * graphWidth
     }
 
     private func highlightWidth(for hitRange: HitRange) -> CGFloat {

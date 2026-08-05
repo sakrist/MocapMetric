@@ -33,26 +33,27 @@ struct HitRange: Identifiable {
 
 struct RecordingAnalysis {
     let samples: [MotionSample]
+    let rawAcceleration: [RawAccelerationSample]
     let hitRanges: [HitRange]
 }
 
 enum StrikeDetectorError: LocalizedError {
-    case missingCSV
+    case missingDeviceMotion
+    case missingRawAcceleration
     case modelNotFound
     case invalidModelMetadata
-    case invalidCSV
     case missingPredictionOutput
 
     var errorDescription: String? {
         switch self {
-        case .missingCSV:
-            return "No CSV file is available for this recording."
+        case .missingDeviceMotion:
+            return "No device-motion binary is available for this recording."
+        case .missingRawAcceleration:
+            return "No 800 Hz raw-acceleration binary is available for this recording."
         case .modelNotFound:
             return "The strike detection model was not found in the app bundle."
         case .invalidModelMetadata:
             return "The model metadata is incomplete for inference."
-        case .invalidCSV:
-            return "The CSV file could not be parsed."
         case .missingPredictionOutput:
             return "The model output is missing."
         }
@@ -75,14 +76,31 @@ actor StrikeDetector {
     private var cachedConfiguration: ModelConfiguration?
 
     func analyze(recording: RecordingSession) throws -> RecordingAnalysis {
-        guard let csvURL = recording.csvURL else {
-            throw StrikeDetectorError.missingCSV
+        guard recording.deviceMotionURL != nil else {
+            throw StrikeDetectorError.missingDeviceMotion
+        }
+        guard recording.rawAccelerometerURL != nil else {
+            throw StrikeDetectorError.missingRawAcceleration
         }
 
         let configuration = try loadConfiguration()
-        let samples = try loadSamples(from: csvURL)
-        let hitRanges = try detectHits(in: samples, configuration: configuration)
-        return RecordingAnalysis(samples: samples, hitRanges: hitRanges)
+        let decoded = try BinaryMotionReader().read(recording: recording)
+        let modelSamples = decoded.deviceMotion.enumerated().compactMap { index, sample in
+            index.isMultiple(of: 2) ? sample : nil
+        }
+        let modelHitRanges = try detectHits(in: modelSamples, configuration: configuration)
+        let hitRanges = modelHitRanges.map { range in
+            HitRange(
+                lowerSample: range.lowerSample * 2,
+                upperSample: min((range.upperSample * 2) + 1, decoded.deviceMotion.count - 1),
+                peakProbability: range.peakProbability
+            )
+        }
+        return RecordingAnalysis(
+            samples: decoded.deviceMotion,
+            rawAcceleration: decoded.rawAcceleration,
+            hitRanges: hitRanges
+        )
     }
 
     private func loadConfiguration() throws -> ModelConfiguration {
@@ -124,75 +142,12 @@ actor StrikeDetector {
             maxHitSamples: 80
         )
 
+        guard featureMean.count == 11, featureStd.count == 11 else {
+            throw StrikeDetectorError.invalidModelMetadata
+        }
+
         cachedConfiguration = configuration
         return configuration
-    }
-
-    private func loadSamples(from csvURL: URL) throws -> [MotionSample] {
-        let contents = try String(contentsOf: csvURL, encoding: .utf8)
-        let rows = contents
-            .split(whereSeparator: \.isNewline)
-            .map(String.init)
-
-        guard let headerRow = rows.first else {
-            throw StrikeDetectorError.invalidCSV
-        }
-
-        let headers = headerRow.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        let indexByColumn = Dictionary(uniqueKeysWithValues: headers.enumerated().map { ($1, $0) })
-
-        let requiredColumns = ["timestamp", "ax", "ay", "az", "gx", "gy", "gz", "grx", "gry", "grz"]
-        guard requiredColumns.allSatisfy({ indexByColumn[$0] != nil }) else {
-            throw StrikeDetectorError.invalidCSV
-        }
-
-        var samples: [MotionSample] = []
-
-        for row in rows.dropFirst() {
-            let values = row.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-
-            guard
-                let timestamp = doubleValue(for: "timestamp", in: values, using: indexByColumn),
-                let ax = doubleValue(for: "ax", in: values, using: indexByColumn),
-                let ay = doubleValue(for: "ay", in: values, using: indexByColumn),
-                let az = doubleValue(for: "az", in: values, using: indexByColumn),
-                let gx = doubleValue(for: "gx", in: values, using: indexByColumn),
-                let gy = doubleValue(for: "gy", in: values, using: indexByColumn),
-                let gz = doubleValue(for: "gz", in: values, using: indexByColumn),
-                let grx = doubleValue(for: "grx", in: values, using: indexByColumn),
-                let gry = doubleValue(for: "gry", in: values, using: indexByColumn),
-                let grz = doubleValue(for: "grz", in: values, using: indexByColumn)
-            else {
-                continue
-            }
-
-            let accMagnitude = magnitude(x: ax, y: ay, z: az)
-            let gyroMagnitude = magnitude(x: gx, y: gy, z: gz)
-
-            samples.append(
-                MotionSample(
-                    id: samples.count,
-                    timestamp: timestamp,
-                    ax: ax,
-                    ay: ay,
-                    az: az,
-                    gx: gx,
-                    gy: gy,
-                    gz: gz,
-                    grx: grx,
-                    gry: gry,
-                    grz: grz,
-                    accMagnitude: accMagnitude,
-                    gyroMagnitude: gyroMagnitude
-                )
-            )
-        }
-
-        guard !samples.isEmpty else {
-            throw StrikeDetectorError.invalidCSV
-        }
-
-        return samples
     }
 
     private func detectHits(in samples: [MotionSample], configuration: ModelConfiguration) throws -> [HitRange] {
@@ -346,17 +301,6 @@ actor StrikeDetector {
     private func normalize(_ value: Double, mean: Double, std: Double) -> Double {
         guard std != 0 else { return value - mean }
         return (value - mean) / std
-    }
-
-    private func magnitude(x: Double, y: Double, z: Double) -> Double {
-        sqrt((x * x) + (y * y) + (z * z))
-    }
-
-    private func doubleValue(for key: String, in row: [String], using indexByColumn: [String: Int]) -> Double? {
-        guard let index = indexByColumn[key], index < row.count else {
-            return nil
-        }
-        return Double(row[index])
     }
 
     private func parseDoubleArray(json: String) -> [Double]? {
