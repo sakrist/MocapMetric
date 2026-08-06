@@ -1,8 +1,21 @@
 # Decisions
 
-## 2026-08-06 — Remove strike detection from HurleyMetric
+## 2026-08-06 — Use a folder package for portable recordings
 
-HurleyMetric remains a debugging/reference app for recording transfer,
+MocapMetric persists one session as `<uuid>.recording`. The core
+package contains the two native Watch binary streams and `.watch.json`; audio
+is optional, while video requires `.phone.json`. WatchConnectivity remains
+file-oriented for retryability, and the iPhone assembles or replaces packages
+atomically after staging. The package has no extra manifest or converted copy
+of the sensor data.
+
+New package directories and assets use the UUID directly (`<uuid>.recording`,
+`<uuid>.device-motion.bin`, and so on). Legacy prefixed loose filenames remain
+readable where the shared filename parser supports them.
+
+## 2026-08-06 — Remove strike detection from MocapMetric
+
+MocapMetric remains a debugging/reference app for recording transfer,
 binary validation, graph review, and video overlay export. It decodes native
 device-motion and raw-accelerometer streams directly with `BinaryMotionReader`
 and does not run strike detection or present hit ranges. Strike semantics stay
@@ -28,7 +41,7 @@ Watch CPU and battery for recording itself.
 
 ## 2026-08-04 — Confirm high-rate motion from callbacks, under a workout session
 
-HurleyMetric starts a Watch workout session before high-rate capture and does
+MocapMetric starts a Watch workout session before high-rate capture and does
 not treat a zero frequency read immediately after Core Motion start as a
 failure. Both native streams are confirmed by their first callbacks and a
 short timeout handles genuine startup failures. If startup fails after the
@@ -43,13 +56,13 @@ moving high-rate sensor processing onto the UI thread.
 
 ## 2026-08-04 — Preserve native raw acceleration in review and export
 
-HurleyMetric keeps every decoded 800 Hz raw-accelerometer sample in the raw
+MocapMetric keeps every decoded 800 Hz raw-accelerometer sample in the raw
 graph and overlay export. The other review modes remain on the 200 Hz
 device-motion stream.
 
-## 2026-08-02 — Use the shared binary pair as the HurleyMetric source format
+## 2026-08-02 — Use the shared binary pair as the MocapMetric source format
 
-HurleyMetric adopts the existing `WatchMotionRecordingKit` version-1 binary
+MocapMetric adopts the existing `WatchMotionRecordingKit` version-1 binary
 contract: 200 Hz device motion and independent 800 Hz raw acceleration. This
 keeps the debug app aligned with CamanLab and avoids CSV serialization at the
 highest-rate path. Existing development CSV fixtures are not a supported
@@ -63,9 +76,9 @@ callback can occur before the first encoded frame and is therefore a weaker
 anchor. Watch and phone planned-start values are still checked for session
 validity.
 
-## 2026-08-02 — Preserve Watch audio as an optional HurleyMetric asset
+## 2026-08-02 — Preserve Watch audio as an optional MocapMetric asset
 
-The shared motion coordinator supports optional audio capture so HurleyMetric
+The shared motion coordinator supports optional audio capture so MocapMetric
 does not lose its existing audio recording behavior while CamanLab can keep
 audio disabled. Audio is transferred with the motion binary pair but is not a
 requirement for motion analysis.

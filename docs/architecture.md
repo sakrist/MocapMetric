@@ -1,8 +1,8 @@
-# HurleyMetric recording architecture
+# MocapMetric recording architecture
 
 The Watch uses `WatchMotionRecordingKit.WatchRecordingCoordinator` for both
 motion streams, timestamp projection, binary writing, pending transfer, and
-retry. HurleyMetric enables the coordinator's optional Watch audio recorder.
+retry. MocapMetric enables the coordinator's optional Watch audio recorder.
 
 The iPhone has three responsibilities:
 
@@ -11,13 +11,13 @@ The iPhone has three responsibilities:
    sessions.
 2. `BinaryMotionReader` validates and decodes the device-motion and raw-
    accelerometer binaries, then keeps measured samples for graph review and
-   overlay export. HurleyMetric does not run strike detection.
+   overlay export. MocapMetric does not run strike detection.
 3. `PhoneVideoRecorder` starts movie capture during the scheduled pre-roll,
    records the first actual video frame timestamp, and stops only the matching
    session. `VideoOverlayExporter` uses that timestamp as the video anchor.
 
 The shared binary package remains the source of truth for header layout,
-record sizes, stream names, and metadata contracts. HurleyMetric should not
+record sizes, stream names, and metadata contracts. MocapMetric should not
 duplicate binary encoders or accept CSV as a runtime motion format.
 
 ## Recording startup and diagnostics
@@ -59,4 +59,5 @@ WatchConnectivity may deliver files in any order. The iPhone keeps each
 received asset under its canonical filename and only binary decoding
 requires the complete device-motion/raw-accelerometer/Watch-metadata set.
 Phone video and phone metadata can arrive independently and are optional for
-motion graph review.
+motion graph review. `RecordingInboxStore` stages those files by UUID and
+atomically replaces the `.recording` directory when optional assets arrive.

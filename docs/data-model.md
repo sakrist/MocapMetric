@@ -1,4 +1,4 @@
-# HurleyMetric recording data model
+# MocapMetric recording data model
 
 ## Session identity
 
@@ -10,29 +10,43 @@ video filenames, and the iPhone recording group.
 
 A complete Watch motion session contains:
 
-- `recording_<uuid>.device-motion.bin`: version-1, little-endian, 64-byte
+- `<uuid>.device-motion.bin`: version-1, little-endian, 64-byte
   header followed by 60-byte Float32 device-motion records. The native stream
   is 200 Hz.
-- `recording_<uuid>.raw-accelerometer.bin`: version-1, little-endian, 64-byte
+- `<uuid>.raw-accelerometer.bin`: version-1, little-endian, 64-byte
   header followed by 20-byte Float32 raw-acceleration records. The native
   stream is 800 Hz and has its own timestamps.
-- `recording_<uuid>.watch.json`: finalized counts, sizes, SHA-256 hashes,
+- `<uuid>.watch.json`: finalized counts, sizes, SHA-256 hashes,
   format versions, frequencies, and session timing.
 
-HurleyMetric may also include `recording_<uuid>.m4a` from the Watch and
-`recording_<uuid>.mov` plus `recording_<uuid>.phone.json` from the iPhone.
+MocapMetric may also include `<uuid>.m4a` from the Watch and
+`<uuid>.mov` plus `<uuid>.phone.json` from the iPhone.
 Audio and video are optional; the two motion binaries and Watch sidecar are
 required for graph review.
 
-The iPhone keeps these files as raw assets. It does not create CSV files or
-store decoded motion samples in the session record.
+The canonical persisted form is a folder-based package:
+
+```text
+<uuid>.recording/
+├── <uuid>.device-motion.bin
+├── <uuid>.raw-accelerometer.bin
+├── <uuid>.watch.json
+├── <uuid>.m4a                 optional
+├── <uuid>.mov                 optional
+└── <uuid>.phone.json          required when video exists
+```
+
+The iPhone keeps the package as raw assets. It does not create CSV files or
+store decoded motion samples in the session record. Transfer callbacks may
+stage individual files temporarily, but only a validated package is shown as
+complete.
 
 ## Analysis views
 
 The review graph uses measured 200 Hz device-motion samples for acceleration,
 gyro, gravity, and magnitude modes. Raw acceleration mode uses every measured
 800 Hz raw sample. The two streams are never assumed to align by row index,
-and HurleyMetric does not derive strike ranges from either stream.
+and MocapMetric does not derive strike ranges from either stream.
 
 Video overlay time is calculated as:
 

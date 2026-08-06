@@ -153,15 +153,37 @@ final class MocapMetricTests: XCTestCase {
         ).finalized(deviceMotion: deviceSummary, rawAccelerometer: rawSummary)
         try JSONEncoder().encode(metadata).write(to: metadataURL)
 
+        let packageURL = RecordingPackageLayout.packageURL(in: directory, sessionID: sessionID)
+        try FileManager.default.createDirectory(at: packageURL, withIntermediateDirectories: true)
+        for kind in [RecordingPackageAssetKind.deviceMotion, .rawAccelerometer, .watchMetadata] {
+            let sourceURL: URL
+            switch kind {
+            case .deviceMotion:
+                sourceURL = deviceURL
+            case .rawAccelerometer:
+                sourceURL = rawURL
+            case .watchMetadata:
+                sourceURL = metadataURL
+            default:
+                continue
+            }
+            try FileManager.default.moveItem(
+                at: sourceURL,
+                to: RecordingPackageLayout.assetURL(kind, in: packageURL, sessionID: sessionID)
+            )
+        }
+        let package = try RecordingPackageDescriptor(packageURL: packageURL, expectedProfile: .core)
+
         let recording = RecordingSession(
             id: sessionID,
             createdAt: Date(),
-            deviceMotionURL: deviceURL,
-            rawAccelerometerURL: rawURL,
-            audioURL: nil,
-            videoURL: nil,
-            phoneMetadataURL: nil,
-            watchMetadataURL: metadataURL
+            packageURL: packageURL,
+            deviceMotionURL: package.deviceMotionURL,
+            rawAccelerometerURL: package.rawAccelerometerURL,
+            audioURL: package.audioURL,
+            videoURL: package.videoURL,
+            phoneMetadataURL: package.phoneMetadataURL,
+            watchMetadataURL: package.watchMetadataURL
         )
         let decoded = try BinaryMotionReader().read(recording: recording)
 

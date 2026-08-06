@@ -7,12 +7,35 @@ import WatchMotionRecordingKit
 struct RecordingSession: Identifiable {
     let id: String
     let createdAt: Date
+    let packageURL: URL?
     let deviceMotionURL: URL?
     let rawAccelerometerURL: URL?
     let audioURL: URL?
     let videoURL: URL?
     let phoneMetadataURL: URL?
     let watchMetadataURL: URL?
+
+    init(
+        id: String,
+        createdAt: Date,
+        packageURL: URL? = nil,
+        deviceMotionURL: URL?,
+        rawAccelerometerURL: URL?,
+        audioURL: URL?,
+        videoURL: URL?,
+        phoneMetadataURL: URL?,
+        watchMetadataURL: URL?
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.packageURL = packageURL
+        self.deviceMotionURL = deviceMotionURL
+        self.rawAccelerometerURL = rawAccelerometerURL
+        self.audioURL = audioURL
+        self.videoURL = videoURL
+        self.phoneMetadataURL = phoneMetadataURL
+        self.watchMetadataURL = watchMetadataURL
+    }
 
     var title: String {
         id
@@ -32,7 +55,10 @@ struct RecordingSession: Identifiable {
     }
 
     var shareItems: [URL] {
-        [deviceMotionURL, rawAccelerometerURL, audioURL, videoURL, phoneMetadataURL, watchMetadataURL].compactMap { $0 }
+        if let packageURL {
+            return [packageURL]
+        }
+        return [deviceMotionURL, rawAccelerometerURL, audioURL, videoURL, phoneMetadataURL, watchMetadataURL].compactMap { $0 }
     }
 
     var hasCompleteMotionSet: Bool {
@@ -83,21 +109,37 @@ final class RecordingInboxStore: NSObject, ObservableObject {
 
         do {
             try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            try Self.assembleRecordingPackages(in: directoryURL)
             let files = try fileManager.contentsOfDirectory(
                 at: directoryURL,
-                includingPropertiesForKeys: [.creationDateKey, .isRegularFileKey],
+                includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey, .isRegularFileKey],
                 options: [.skipsHiddenFiles]
             )
 
-            var groupedFiles: [String: (deviceMotionURL: URL?, rawAccelerometerURL: URL?, audioURL: URL?, videoURL: URL?, phoneMetadataURL: URL?, watchMetadataURL: URL?, createdAt: Date)] = [:]
+            var groupedFiles: [String: (packageURL: URL?, deviceMotionURL: URL?, rawAccelerometerURL: URL?, audioURL: URL?, videoURL: URL?, phoneMetadataURL: URL?, watchMetadataURL: URL?, createdAt: Date)] = [:]
 
             for url in files {
-                let values = try? url.resourceValues(forKeys: [.creationDateKey, .isRegularFileKey])
+                let values = try? url.resourceValues(forKeys: [.creationDateKey, .isDirectoryKey, .isRegularFileKey])
+                if values?.isDirectory == true,
+                   let sessionID = RecordingPackageLayout.sessionID(fromPackageDirectoryName: url.lastPathComponent),
+                   let descriptor = try? RecordingPackageDescriptor(packageURL: url) {
+                    var entry = groupedFiles[sessionID] ?? (nil, nil, nil, nil, nil, nil, nil, .distantPast)
+                    entry.packageURL = url
+                    entry.deviceMotionURL = descriptor.deviceMotionURL
+                    entry.rawAccelerometerURL = descriptor.rawAccelerometerURL
+                    entry.audioURL = descriptor.audioURL
+                    entry.videoURL = descriptor.videoURL
+                    entry.phoneMetadataURL = descriptor.phoneMetadataURL
+                    entry.watchMetadataURL = descriptor.watchMetadataURL
+                    entry.createdAt = max(entry.createdAt, values?.creationDate ?? .distantPast)
+                    groupedFiles[sessionID] = entry
+                    continue
+                }
                 guard values?.isRegularFile == true else { continue }
 
                 guard let parsedFile = Self.parseRecordingFileName(url.lastPathComponent) else { continue }
 
-                var entry = groupedFiles[parsedFile.sessionID] ?? (nil, nil, nil, nil, nil, nil, values?.creationDate ?? .distantPast)
+                var entry = groupedFiles[parsedFile.sessionID] ?? (nil, nil, nil, nil, nil, nil, nil, values?.creationDate ?? .distantPast)
                 entry.createdAt = max(entry.createdAt, values?.creationDate ?? .distantPast)
 
                 switch parsedFile.kind {
@@ -123,6 +165,7 @@ final class RecordingInboxStore: NSObject, ObservableObject {
                     RecordingSession(
                         id: key,
                         createdAt: value.createdAt,
+                        packageURL: value.packageURL,
                         deviceMotionURL: value.deviceMotionURL,
                         rawAccelerometerURL: value.rawAccelerometerURL,
                         audioURL: value.audioURL,
@@ -139,6 +182,9 @@ final class RecordingInboxStore: NSObject, ObservableObject {
 
     func deleteRecording(_ recording: RecordingSession) {
         let fileManager = FileManager.default
+        if let packageURL = recording.packageURL {
+            try? fileManager.removeItem(at: packageURL)
+        }
         let fileURLs = [
             recording.deviceMotionURL,
             recording.rawAccelerometerURL,
@@ -149,8 +195,17 @@ final class RecordingInboxStore: NSObject, ObservableObject {
         ].compactMap { $0 }
 
         do {
+            let directoryURL = Self.recordingsDirectoryURL()
+            let stagedFiles = try fileManager.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+            for fileURL in stagedFiles where Self.parseRecordingFileName(fileURL.lastPathComponent)?.sessionID == recording.id {
+                try? fileManager.removeItem(at: fileURL)
+            }
             for fileURL in fileURLs {
-                if fileManager.fileExists(atPath: fileURL.path) {
+                if fileManager.fileExists(atPath: fileURL.path), fileURL != recording.packageURL {
                     try fileManager.removeItem(at: fileURL)
                 }
             }
@@ -166,6 +221,100 @@ final class RecordingInboxStore: NSObject, ObservableObject {
         let sessions = offsets.map { recordings[$0] }
         for session in sessions {
             deleteRecording(session)
+        }
+    }
+
+    /// Combines WatchConnectivity's individual retryable files into one
+    /// package. A package is only replaced after its complete visible contents
+    /// pass the shared filesystem validation.
+    private static func assembleRecordingPackages(in directoryURL: URL) throws {
+        let fileManager = FileManager.default
+        let files = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        )
+        var staged: [String: [ParsedRecordingFileKind: URL]] = [:]
+
+        for fileURL in files {
+            let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            guard values?.isRegularFile == true,
+                  let parsed = parseRecordingFileName(fileURL.lastPathComponent) else { continue }
+            staged[parsed.sessionID, default: [:]][parsed.kind] = fileURL
+        }
+
+        for (sessionID, assets) in staged {
+            guard let deviceMotionURL = assets[.deviceMotion],
+                  let rawAccelerometerURL = assets[.rawAccelerometer],
+                  let watchMetadataURL = assets[.watchMetadata] else { continue }
+            if assets[.video] != nil, assets[.phoneMetadata] == nil {
+                continue
+            }
+
+            let packageURL = RecordingPackageLayout.packageURL(in: directoryURL, sessionID: sessionID)
+            let temporaryContainerURL = directoryURL.appendingPathComponent(
+                ".incoming-\(sessionID)-\(UUID().uuidString)",
+                isDirectory: true
+            )
+            let temporaryPackageURL = temporaryContainerURL.appendingPathComponent(
+                RecordingPackageLayout.packageDirectoryName(sessionID: sessionID),
+                isDirectory: true
+            )
+            let backupURL = directoryURL.appendingPathComponent(
+                ".backup-\(sessionID)-\(UUID().uuidString)",
+                isDirectory: true
+            )
+            let stagedAssets: [(RecordingPackageAssetKind, URL)] = [
+                (.deviceMotion, deviceMotionURL),
+                (.rawAccelerometer, rawAccelerometerURL),
+                (.watchMetadata, watchMetadataURL),
+                (.audio, assets[.audio]),
+                (.video, assets[.video]),
+                (.phoneMetadata, assets[.phoneMetadata]),
+            ].compactMap { kind, url in url.map { (kind, $0) } }
+
+            var movedExistingPackage = false
+            var movedNewPackage = false
+            do {
+                try fileManager.createDirectory(at: temporaryContainerURL, withIntermediateDirectories: true)
+                if fileManager.fileExists(atPath: packageURL.path) {
+                    try fileManager.copyItem(at: packageURL, to: temporaryPackageURL)
+                } else {
+                    try fileManager.createDirectory(at: temporaryPackageURL, withIntermediateDirectories: true)
+                }
+                for (kind, sourceURL) in stagedAssets {
+                    let destinationURL = RecordingPackageLayout.assetURL(kind, in: temporaryPackageURL, sessionID: sessionID)
+                    if fileManager.fileExists(atPath: destinationURL.path) {
+                        try fileManager.removeItem(at: destinationURL)
+                    }
+                    try fileManager.copyItem(at: sourceURL, to: destinationURL)
+                }
+                _ = try RecordingPackageDescriptor(packageURL: temporaryPackageURL)
+                if fileManager.fileExists(atPath: packageURL.path) {
+                    try fileManager.moveItem(at: packageURL, to: backupURL)
+                    movedExistingPackage = true
+                }
+                try fileManager.moveItem(at: temporaryPackageURL, to: packageURL)
+                movedNewPackage = true
+                if movedExistingPackage {
+                    try fileManager.removeItem(at: backupURL)
+                }
+                for (_, sourceURL) in stagedAssets {
+                    try? fileManager.removeItem(at: sourceURL)
+                }
+            } catch {
+                try? fileManager.removeItem(at: temporaryContainerURL)
+                if movedNewPackage {
+                    try? fileManager.removeItem(at: packageURL)
+                }
+                if movedExistingPackage,
+                   !fileManager.fileExists(atPath: packageURL.path) {
+                    try? fileManager.moveItem(at: backupURL, to: packageURL)
+                }
+                throw error
+            }
+            try? fileManager.removeItem(at: temporaryContainerURL)
+            try? fileManager.removeItem(at: backupURL)
         }
     }
 

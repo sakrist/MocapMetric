@@ -20,14 +20,14 @@
 			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D2B91CCD2F5AFCFF005AE3AA;
-			remoteInfo = HurleyMetric;
+			remoteInfo = MocapMetric;
 		};
 		D2B91D1F2F5B0122005AE3AA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D2B91D002F5B0120005AE3AA;
-			remoteInfo = "HurleyMetricWatch Watch App";
+			remoteInfo = "MocapMetricWatch";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -166,7 +166,7 @@
 			packageProductDependencies = (
 				D21E4C422FA7F00600BCBA5A /* WatchMotionRecordingKit */,
 			);
-			productName = HurleyMetric;
+			productName = MocapMetric;
 			productReference = D2B91CCE2F5AFCFF005AE3AA /* MocapMetric.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -190,7 +190,7 @@
 			packageProductDependencies = (
 				D21E4C422FA7F00600BCBA5A /* WatchMotionRecordingKit */,
 			);
-			productName = HurleyMetricTests;
+			productName = MocapMetricTests;
 			productReference = D2B91CDF2F5AFD02005AE3AA /* MocapMetricTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -213,7 +213,7 @@
 			packageProductDependencies = (
 				D21E4C422FA7F00600BCBA5A /* WatchMotionRecordingKit */,
 			);
-			productName = "HurleyMetricWatch Watch App";
+			productName = MocapMetricWatch;
 			productReference = D2B91D012F5B0120005AE3AA /* MocapMetricWatch.app */;
 			productType = "com.apple.product-type.application";
 		};

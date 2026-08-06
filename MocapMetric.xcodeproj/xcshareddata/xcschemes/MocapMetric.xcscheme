@@ -41,17 +41,6 @@
                ReferencedContainer = "container:MocapMetric.xcodeproj">
             </BuildableReference>
          </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D2B91CE82F5AFD02005AE3AA"
-               BuildableName = "HurleyMetricUITests.xctest"
-               BlueprintName = "HurleyMetricUITests"
-               ReferencedContainer = "container:MocapMetric.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
