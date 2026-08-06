@@ -22,7 +22,7 @@ A complete Watch motion session contains:
 HurleyMetric may also include `recording_<uuid>.m4a` from the Watch and
 `recording_<uuid>.mov` plus `recording_<uuid>.phone.json` from the iPhone.
 Audio and video are optional; the two motion binaries and Watch sidecar are
-required for analysis.
+required for graph review.
 
 The iPhone keeps these files as raw assets. It does not create CSV files or
 store decoded motion samples in the session record.
@@ -30,11 +30,9 @@ store decoded motion samples in the session record.
 ## Analysis views
 
 The review graph uses measured 200 Hz device-motion samples for acceleration,
-gyro, gravity, and magnitude modes. The strike model receives the
-deterministic half-rate view at canonical indexes `0, 2, 4, ...` because its
-existing windows are nominally 100 Hz. Raw acceleration mode uses every
-measured 800 Hz raw sample and maps hit highlights by timestamp; the two
-streams are never assumed to align by row index.
+gyro, gravity, and magnitude modes. Raw acceleration mode uses every measured
+800 Hz raw sample. The two streams are never assumed to align by row index,
+and HurleyMetric does not derive strike ranges from either stream.
 
 Video overlay time is calculated as:
 

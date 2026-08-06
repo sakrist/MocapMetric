@@ -9,10 +9,9 @@ The iPhone has three responsibilities:
 1. `RecordingInboxStore` receives files, replaces duplicate deliveries
    idempotently, groups assets by UUID, and exposes complete or partial
    sessions.
-2. `StrikeDetector` validates and decodes the device-motion and raw-
-   accelerometer binaries, supplies the model's half-rate compatibility view,
-   and keeps measured samples for review. Raw acceleration review and overlay
-   export retain the native 800 Hz timestamps and values.
+2. `BinaryMotionReader` validates and decodes the device-motion and raw-
+   accelerometer binaries, then keeps measured samples for graph review and
+   overlay export. HurleyMetric does not run strike detection.
 3. `PhoneVideoRecorder` starts movie capture during the scheduled pre-roll,
    records the first actual video frame timestamp, and stops only the matching
    session. `VideoOverlayExporter` uses that timestamp as the video anchor.
@@ -57,7 +56,7 @@ change the binary contract or the native sensor data retained on disk.
 ## Transfer ordering
 
 WatchConnectivity may deliver files in any order. The iPhone keeps each
-received asset under its canonical filename and only binary-analysis code
+received asset under its canonical filename and only binary decoding
 requires the complete device-motion/raw-accelerometer/Watch-metadata set.
 Phone video and phone metadata can arrive independently and are optional for
-motion analysis.
+motion graph review.

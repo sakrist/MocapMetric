@@ -1,6 +1,6 @@
-# HurleyMetric
+# MocapMetric
 
-HurleyMetric records Apple Watch motion data and audio, optionally records iPhone video for the same session, transfers everything to iPhone, and exports the data for later analysis.
+MocapMetric records Apple Watch motion data and audio, optionally records iPhone video for the same session, transfers everything to iPhone, and exports the data for later analysis.
 
 ## Data Collected
 
@@ -21,19 +21,18 @@ The two binary streams use the versioned `WatchMotionRecordingKit` contract:
 - UUID session identity, sample count, native frequency, and integrity data
 
 Device motion is recorded at 200 Hz and raw acceleration independently at 800
-Hz. Their timestamps are not row-aligned. The iPhone uses the measured 200 Hz
-stream for review and sends its deterministic `0, 2, 4, ...` view to the
-existing nominal-100 Hz strike model. Raw acceleration is retained and shown
-in the high-frequency review graph.
+Hz. Their timestamps are not row-aligned. The iPhone uses the measured streams
+for graph review and video overlay export. MocapMetric does not run strike
+detection.
 
-HurleyMetric does not parse or generate CSV as part of the app recording path.
+MocapMetric does not parse or generate CSV as part of the app recording path.
 
 ## Sync metadata
 
 The Watch sidecar is finalized only after both binary streams are closed. It
 contains the asset filenames, byte counts, SHA-256 hashes, format versions,
 sample counts, actual frequencies, and start timing. Audio is optional and is
-not required for motion analysis.
+not required for graph review.
 
 ## Recording Flow
 
@@ -189,11 +188,11 @@ That keeps the architecture understandable while removing the largest per-sample
 
 - Reusable watch recorder: `Packages/WatchMotionRecordingKit/Sources/WatchMotionRecordingKit/WatchRecordingCoordinator.swift`
 - Reusable watch transport: `Packages/WatchMotionRecordingKit/Sources/WatchMotionRecordingKit/WatchRecordingTransport.swift`
-- Watch compatibility alias: `HurleyMetricWatch Watch App/AccelerometerLogger.swift`
-- Watch transport alias: `HurleyMetricWatch Watch App/WatchRecordingTransferManager.swift`
-- iPhone recorder: `HurleyMetric/PhoneVideoRecorder.swift`
-- iPhone inbox/receiver: `HurleyMetric/RecordingInboxStore.swift`
-- Binary motion decoding and validation: `HurleyMetric/BinaryMotionReader.swift`
-- iPhone export alignment: `HurleyMetric/VideoOverlayExporter.swift`
-- External binary overlay tool: `HurleyMetric/overlay_acceleration_graph.py`
-- iPhone recordings UI: `HurleyMetric/ContentView.swift`
+- Watch compatibility alias: `MocapMetricWatch Watch App/AccelerometerLogger.swift`
+- Watch transport alias: `MocapMetricWatch Watch App/WatchRecordingTransferManager.swift`
+- iPhone recorder: `MocapMetric/PhoneVideoRecorder.swift`
+- iPhone inbox/receiver: `MocapMetric/RecordingInboxStore.swift`
+- Binary motion decoding and validation: `MocapMetric/BinaryMotionReader.swift`
+- iPhone export alignment: `MocapMetric/VideoOverlayExporter.swift`
+- External binary overlay tool: `MocapMetric/overlay_acceleration_graph.py`
+- iPhone recordings UI: `MocapMetric/ContentView.swift`

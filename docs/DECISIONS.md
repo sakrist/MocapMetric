@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-08-06 — Remove strike detection from HurleyMetric
+
+HurleyMetric remains a debugging/reference app for recording transfer,
+binary validation, graph review, and video overlay export. It decodes native
+device-motion and raw-accelerometer streams directly with `BinaryMotionReader`
+and does not run strike detection or present hit ranges. Strike semantics stay
+in the production-facing analysis path.
+
 ## 2026-08-04 — Decouple the Watch graph from high-rate capture
 
 The Watch graph is a visual diagnostic rather than a recording source. The
@@ -36,9 +44,8 @@ moving high-rate sensor processing onto the UI thread.
 ## 2026-08-04 — Preserve native raw acceleration in review and export
 
 HurleyMetric keeps every decoded 800 Hz raw-accelerometer sample in the raw
-graph and overlay export. Device-motion hit ranges are positioned against that
-graph by timestamp, while the model and the other review modes remain on the
-200 Hz device-motion stream.
+graph and overlay export. The other review modes remain on the 200 Hz
+device-motion stream.
 
 ## 2026-08-02 — Use the shared binary pair as the HurleyMetric source format
 
