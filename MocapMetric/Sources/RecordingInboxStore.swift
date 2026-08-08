@@ -227,7 +227,7 @@ final class RecordingInboxStore: NSObject, ObservableObject {
     /// Combines WatchConnectivity's individual retryable files into one
     /// package. A package is only replaced after its complete visible contents
     /// pass the shared filesystem validation.
-    private static func assembleRecordingPackages(in directoryURL: URL) throws {
+    static func assembleRecordingPackages(in directoryURL: URL) throws {
         let fileManager = FileManager.default
         let files = try fileManager.contentsOfDirectory(
             at: directoryURL,
@@ -244,14 +244,22 @@ final class RecordingInboxStore: NSObject, ObservableObject {
         }
 
         for (sessionID, assets) in staged {
-            guard let deviceMotionURL = assets[.deviceMotion],
-                  let rawAccelerometerURL = assets[.rawAccelerometer],
-                  let watchMetadataURL = assets[.watchMetadata] else { continue }
-            if assets[.video] != nil, assets[.phoneMetadata] == nil {
+            let packageURL = RecordingPackageLayout.packageURL(in: directoryURL, sessionID: sessionID)
+            let existingDescriptor = try? RecordingPackageDescriptor(packageURL: packageURL)
+            let hasCoreAssets = assets[.deviceMotion] != nil
+                && assets[.rawAccelerometer] != nil
+                && assets[.watchMetadata] != nil
+
+            // Optional WatchConnectivity files can arrive after the core files
+            // have already been assembled. Reopen the existing package so a
+            // late audio file is merged instead of being left beside it.
+            guard existingDescriptor != nil || hasCoreAssets else { continue }
+
+            let hasVideo = assets[.video] != nil || existingDescriptor?.videoURL != nil
+            let hasPhoneMetadata = assets[.phoneMetadata] != nil || existingDescriptor?.phoneMetadataURL != nil
+            if hasVideo, !hasPhoneMetadata {
                 continue
             }
-
-            let packageURL = RecordingPackageLayout.packageURL(in: directoryURL, sessionID: sessionID)
             let temporaryContainerURL = directoryURL.appendingPathComponent(
                 ".incoming-\(sessionID)-\(UUID().uuidString)",
                 isDirectory: true
@@ -265,9 +273,9 @@ final class RecordingInboxStore: NSObject, ObservableObject {
                 isDirectory: true
             )
             let stagedAssets: [(RecordingPackageAssetKind, URL)] = [
-                (.deviceMotion, deviceMotionURL),
-                (.rawAccelerometer, rawAccelerometerURL),
-                (.watchMetadata, watchMetadataURL),
+                (.deviceMotion, assets[.deviceMotion]),
+                (.rawAccelerometer, assets[.rawAccelerometer]),
+                (.watchMetadata, assets[.watchMetadata]),
                 (.audio, assets[.audio]),
                 (.video, assets[.video]),
                 (.phoneMetadata, assets[.phoneMetadata]),
@@ -474,7 +482,7 @@ extension RecordingInboxStore: WCSessionDelegate {
                     sessionID: controlMessage.sessionID,
                     leadTime: controlMessage.leadTime ?? 2.0
                 )
-                self.statusMessage = result.accepted ? "Video pre-roll armed" : "Video sync unavailable"
+                self.statusMessage = result.accepted ? "Video ready for Watch" : "Video sync unavailable"
             case .start:
                 self.videoRecorder.startRemoteRecording(sessionID: controlMessage.sessionID)
                 self.statusMessage = "Watch started recording"
@@ -505,7 +513,7 @@ extension RecordingInboxStore: WCSessionDelegate {
                 sessionID: controlMessage.sessionID,
                 leadTime: controlMessage.leadTime ?? 2.0
             )
-            self.statusMessage = result.accepted ? "Video pre-roll armed" : "Video sync unavailable"
+            self.statusMessage = result.accepted ? "Video ready for Watch" : "Video sync unavailable"
             replyHandler(
                 ScheduledStartResponse(
                     plannedStartUnix: result.plannedStartUnix,

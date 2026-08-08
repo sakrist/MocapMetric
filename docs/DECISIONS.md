@@ -1,5 +1,45 @@
 # Decisions
 
+## 2026-08-08 — Merge late optional assets before package export
+
+WatchConnectivity may deliver audio after the iPhone has already assembled the
+core recording package. Package assembly therefore reopens the existing
+package and atomically merges late audio, video, or phone metadata before the
+package is shared. The recording list and AirDrop export now describe the same
+asset set.
+
+## 2026-08-08 — Gate high-speed phone video behind an explicit recorder screen
+
+MocapMetric replaces the iPhone video toggle with an `Open Video Recorder`
+button. The full-screen recorder is the only state in which Watch video
+preparation is accepted; opening it arms the camera, but the Watch remains the
+only source of movie start and stop controls. Closing the idle recorder
+disarms video, while motion-only Watch recordings remain valid when the
+recorder is not open.
+
+The camera selects the highest supported frame rate up to 240 fps and keeps the
+full-screen status visible while a phone session is active. This favors precise
+strike and motion review over battery savings when the user explicitly enters
+video-recorder mode. Watch prepare reserves the matching session; only the
+Watch `.start` control starts the movie file, and `.stop` finalizes it.
+
+## 2026-08-07 — Motion recording does not depend on optional media
+
+MocapMetric always starts a valid motion recording when the Watch has the
+required workout and motion permissions. iPhone video is attempted only when
+armed and reachable; a rejected or unavailable video preparation falls back to
+an immediate motion-only start. Watch audio is also best effort, so a denied
+microphone permission leaves out `.m4a` rather than failing motion capture.
+
+The active recording screen shows elapsed Watch time from the actual capture
+start in fixed `HH:mm:ss` format. The full-screen iPhone recorder is opened
+before the Watch session; the Watch sends its stop control before draining
+motion buffers, and the iPhone keeps the recorder visible until the video
+container finishes writing.
+The previous battery-conscious 60 fps setting is superseded by the explicit
+240 fps recorder mode documented on 2026-08-08; the frame timestamp callback
+still stops working after it captures the single first-frame timing anchor.
+
 ## 2026-08-06 — Use a folder package for portable recordings
 
 MocapMetric persists one session as `<uuid>.recording`. The core
@@ -45,7 +85,7 @@ MocapMetric starts a Watch workout session before high-rate capture and does
 not treat a zero frequency read immediately after Core Motion start as a
 failure. Both native streams are confirmed by their first callbacks and a
 short timeout handles genuine startup failures. If startup fails after the
-iPhone accepts video pre-roll, the Watch sends a matching stop command.
+iPhone accepts video preparation, the Watch sends a matching stop command.
 
 ## 2026-08-04 — Publish recording state on the main actor
 
@@ -70,11 +110,12 @@ runtime input and should be regenerated as binary sessions when needed.
 
 ## 2026-08-02 — Keep phone first-frame timing as the video anchor
 
-The phone starts movie capture during pre-roll, but alignment uses the first
-video sample-buffer timestamp rather than the movie-output start callback. The
-callback can occur before the first encoded frame and is therefore a weaker
-anchor. Watch and phone planned-start values are still checked for session
-validity.
+Alignment uses the first video sample-buffer timestamp rather than the
+movie-output start callback. The callback can occur before the first encoded
+frame and is therefore a weaker anchor. Watch and phone planned-start values
+are still checked for session validity. The explicit recorder mode starts the
+movie from the Watch `.start` control; this supersedes the earlier pre-roll
+implementation.
 
 ## 2026-08-02 — Preserve Watch audio as an optional MocapMetric asset
 

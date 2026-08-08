@@ -15,6 +15,8 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
     @Published var isArmed = false
     @Published private(set) var isConfigured = false
     @Published private(set) var isRecording = false
+    /// Covers a prepared or active remote movie session.
+    @Published private(set) var isVideoSessionActive = false
     @Published private(set) var statusMessage = "iPhone video off"
     @Published private(set) var showSyncFlash = false
     private(set) var configuredFrameRate: Double?
@@ -33,6 +35,18 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
     private var didConfigureSession = false
     private var needsFirstRecordedFrameTimestamp = false
     private var hasStartedMovieOutput = false
+    private var hasRequestedMovieOutput = false
+
+    /// Opens the explicit full-screen video-recorder mode.
+    func openVideoRecorder() {
+        setArmed(true)
+    }
+
+    /// Closes the recorder only after its remote movie session has finished.
+    func closeVideoRecorder() {
+        guard !isRecording, !isVideoSessionActive else { return }
+        setArmed(false)
+    }
 
     func setArmed(_ armed: Bool) {
         logger.info("Video arming changed. armed=\(armed, privacy: .public)")
@@ -43,6 +57,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
                 await configureAndStartSessionIfNeeded()
             }
         } else {
+            isVideoSessionActive = false
             stopVideoSession()
         }
     }
@@ -82,6 +97,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
             self.removeExistingRecordingIfNeeded(at: outputURL)
             self.needsFirstRecordedFrameTimestamp = true
             self.hasStartedMovieOutput = false
+            self.hasRequestedMovieOutput = true
             self.logger.info("Starting movie output from Watch control. session=\(sessionID, privacy: .public) file=\(outputURL.lastPathComponent, privacy: .public)")
             self.movieOutput.startRecording(to: outputURL, recordingDelegate: self)
 
@@ -92,29 +108,29 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
     }
 
     func prepareRemoteRecording(sessionID: String, leadTime: TimeInterval) -> ScheduledStartResult {
-        logger.info("Received Watch video pre-roll request. session=\(sessionID, privacy: .public) leadTime=\(leadTime, privacy: .public)s")
+        logger.info("Received Watch video prepare request. session=\(sessionID, privacy: .public) leadTime=\(leadTime, privacy: .public)s")
         guard isArmed, isConfigured else {
-            logger.error("Rejecting Watch video pre-roll; video is not ready. session=\(sessionID, privacy: .public) armed=\(self.isArmed, privacy: .public) configured=\(self.isConfigured, privacy: .public)")
+            logger.error("Rejecting Watch video prepare; video is not ready. session=\(sessionID, privacy: .public) armed=\(self.isArmed, privacy: .public) configured=\(self.isConfigured, privacy: .public)")
             statusMessage = "Video not armed for sync start"
             return ScheduledStartResult(plannedStartUnix: Date().timeIntervalSince1970, accepted: false)
         }
         guard currentSessionID == nil else {
-            logger.error("Rejecting Watch video pre-roll; another session is active. requested=\(sessionID, privacy: .public) active=\(self.currentSessionID ?? "none", privacy: .public)")
+            logger.error("Rejecting Watch video prepare; another session is active. requested=\(sessionID, privacy: .public) active=\(self.currentSessionID ?? "none", privacy: .public)")
             statusMessage = "Video is already preparing or recording"
             return ScheduledStartResult(plannedStartUnix: Date().timeIntervalSince1970, accepted: false)
         }
-        guard !sessionQueue.sync(execute: { movieOutput.isRecording }) else {
-            logger.error("Rejecting Watch video pre-roll; movie output is already recording. session=\(sessionID, privacy: .public)")
+        guard !sessionQueue.sync(execute: { movieOutput.isRecording || hasRequestedMovieOutput }) else {
+            logger.error("Rejecting Watch video prepare; movie output is already starting or recording. session=\(sessionID, privacy: .public)")
             statusMessage = "Video is already recording"
             return ScheduledStartResult(plannedStartUnix: Date().timeIntervalSince1970, accepted: false)
         }
 
         let now = Date().timeIntervalSince1970
-        let plannedStartUnix = now + max(leadTime, 1.0)
+        // Manual recorder mode keeps the camera stream live before this request,
+        // so it does not need the former multi-second synchronization lead.
+        let plannedStartUnix = now + max(leadTime, 0)
         let metadataURL = Self.recordingsDirectoryURL()
             .appendingPathComponent(WatchRecordingAssetNaming.phoneMetadataFileName(sessionID: sessionID))
-        let outputURL = Self.recordingsDirectoryURL()
-            .appendingPathComponent(WatchRecordingAssetNaming.videoFileName(sessionID: sessionID))
 
         currentSessionID = sessionID
         currentMetadataFileURL = metadataURL
@@ -128,37 +144,52 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
         )
 
         saveCurrentMetadata()
-        scheduleSyncFlash(at: plannedStartUnix)
+        // Keep the recorder full screen while the Watch owns this session. The
+        // movie file itself starts only when the Watch sends `.start`.
+        isVideoSessionActive = true
 
-        sessionQueue.async {
-            guard !self.movieOutput.isRecording else {
-                self.logger.error("Could not start video pre-roll; movie output is already recording. session=\(sessionID, privacy: .public)")
-                return
-            }
-            self.removeExistingRecordingIfNeeded(at: outputURL)
-            self.needsFirstRecordedFrameTimestamp = true
-            self.hasStartedMovieOutput = false
-            self.logger.info("Starting video pre-roll. session=\(sessionID, privacy: .public) file=\(outputURL.lastPathComponent, privacy: .public)")
-            self.movieOutput.startRecording(to: outputURL, recordingDelegate: self)
-        }
-
-        logger.info("Accepted Watch video pre-roll. session=\(sessionID, privacy: .public) plannedStart=\(plannedStartUnix, privacy: .public)")
-        statusMessage = "Video pre-roll started"
+        logger.info("Accepted Watch video prepare. session=\(sessionID, privacy: .public) plannedStart=\(plannedStartUnix, privacy: .public)")
+        statusMessage = "Video ready for Watch"
         return ScheduledStartResult(plannedStartUnix: plannedStartUnix, accepted: true)
     }
 
     func stopRemoteRecording(sessionID: String) {
         logger.info("Received Watch video stop. session=\(sessionID, privacy: .public)")
+        guard currentSessionID == sessionID else {
+            logger.error("Ignoring Watch video stop for a different session. requested=\(sessionID, privacy: .public) active=\(self.currentSessionID ?? "none", privacy: .public)")
+            return
+        }
+
         sessionQueue.async {
-            guard self.movieOutput.isRecording else {
-                self.logger.info("Movie output was already stopped. session=\(sessionID, privacy: .public)")
-                return
-            }
             guard self.currentSessionID == sessionID else {
                 self.logger.error("Ignoring Watch video stop for a different session. requested=\(sessionID, privacy: .public) active=\(self.currentSessionID ?? "none", privacy: .public)")
                 return
             }
+
+            guard self.movieOutput.isRecording || self.hasRequestedMovieOutput else {
+                self.logger.info("Movie output was never started. session=\(sessionID, privacy: .public)")
+                self.finishRemoteSessionWithoutMovie(sessionID: sessionID)
+                return
+            }
             self.movieOutput.stopRecording()
+        }
+    }
+
+    private func finishRemoteSessionWithoutMovie(sessionID: String) {
+        guard currentSessionID == sessionID else { return }
+        if let currentMetadataFileURL {
+            try? FileManager.default.removeItem(at: currentMetadataFileURL)
+        }
+        currentSessionID = nil
+        currentMetadataFileURL = nil
+        currentMetadata = nil
+        needsFirstRecordedFrameTimestamp = false
+        hasRequestedMovieOutput = false
+
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.isVideoSessionActive = false
+            self.statusMessage = "No iPhone video recorded"
         }
     }
 
@@ -169,6 +200,7 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
                 self.movieOutput.stopRecording()
             }
             self.hasStartedMovieOutput = false
+            self.hasRequestedMovieOutput = false
 
             if self.captureSession.isRunning {
                 self.captureSession.stopRunning()
@@ -176,19 +208,32 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
 
             DispatchQueue.main.async {
                 self.isRecording = false
+                self.isVideoSessionActive = false
                 self.isConfigured = false
                 self.statusMessage = "iPhone video off"
             }
         }
     }
 
-    private func scheduleSyncFlash(at plannedStartUnix: Double) {
-        // Convert the agreed wall-clock start time into a local delay for the UI flash.
-        let delay = max(0, plannedStartUnix - Date().timeIntervalSince1970)
+    /// Anchors the visible sync flash to the first movie-output callback. This
+    /// keeps the flash inside the file even though the camera stream was live
+    /// before the Watch sent `.start`.
+    private func recordMovieStartAndShowSyncFlash() {
+        let syncFlashUnix = Date().timeIntervalSince1970
+        if let currentMetadata {
+            self.currentMetadata = PhoneRecordingMetadata(
+                sessionID: currentMetadata.sessionID,
+                plannedStartUnix: currentMetadata.plannedStartUnix,
+                preRollStartUnix: currentMetadata.preRollStartUnix,
+                actualVideoStartUnix: currentMetadata.actualVideoStartUnix,
+                syncFlashUnix: syncFlashUnix,
+                createdUnix: currentMetadata.createdUnix
+            )
+            saveCurrentMetadata()
+        }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        DispatchQueue.main.async {
             self.showSyncFlash = true
-            // Keep the flash brief so it is easy to spot in the recorded video.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 self.showSyncFlash = false
             }
@@ -284,16 +329,22 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
         captureSession.addOutput(movieOutput)
     }
 
+    /// Chooses the highest available frame rate up to 240 fps.
     private func configureHighestFrameRate(for camera: AVCaptureDevice) throws {
         try camera.lockForConfiguration()
         defer { camera.unlockForConfiguration() }
 
         var bestFormat: AVCaptureDevice.Format?
         var bestFrameRateRange: AVFrameRateRange?
+        let maximumFrameRate = 240.0
 
         for format in camera.formats {
             for frameRateRange in format.videoSupportedFrameRateRanges {
-                guard bestFrameRateRange == nil || frameRateRange.maxFrameRate > bestFrameRateRange!.maxFrameRate else {
+                let candidateFrameRate = min(maximumFrameRate, frameRateRange.maxFrameRate)
+                guard candidateFrameRate >= frameRateRange.minFrameRate else {
+                    continue
+                }
+                guard bestFrameRateRange == nil || candidateFrameRate > min(maximumFrameRate, bestFrameRateRange!.maxFrameRate) else {
                     continue
                 }
 
@@ -305,9 +356,14 @@ final class PhoneVideoRecorder: NSObject, ObservableObject {
         guard let bestFormat, let bestFrameRateRange else { return }
 
         camera.activeFormat = bestFormat
-        camera.activeVideoMinFrameDuration = bestFrameRateRange.minFrameDuration
-        camera.activeVideoMaxFrameDuration = bestFrameRateRange.minFrameDuration
-        configuredFrameRate = bestFrameRateRange.maxFrameRate
+        let selectedFrameRate = min(maximumFrameRate, bestFrameRateRange.maxFrameRate)
+        let selectedFrameDuration = CMTime(
+            seconds: 1.0 / selectedFrameRate,
+            preferredTimescale: 60_000
+        )
+        camera.activeVideoMinFrameDuration = selectedFrameDuration
+        camera.activeVideoMaxFrameDuration = selectedFrameDuration
+        configuredFrameRate = selectedFrameRate
     }
 
     private func requestCameraPermission() async -> Bool {
@@ -394,6 +450,7 @@ extension PhoneVideoRecorder: AVCaptureFileOutputRecordingDelegate {
     ) {
         self.sessionQueue.async {
             self.hasStartedMovieOutput = true
+            self.recordMovieStartAndShowSyncFlash()
         }
         logger.info("Movie output started. file=\(fileURL.lastPathComponent, privacy: .public)")
         DispatchQueue.main.async {
@@ -410,6 +467,7 @@ extension PhoneVideoRecorder: AVCaptureFileOutputRecordingDelegate {
     ) {
         self.sessionQueue.async {
             self.hasStartedMovieOutput = false
+            self.hasRequestedMovieOutput = false
         }
         if let error {
             logger.error("Movie output finished with an error. file=\(outputFileURL.lastPathComponent, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
@@ -418,6 +476,7 @@ extension PhoneVideoRecorder: AVCaptureFileOutputRecordingDelegate {
         }
         DispatchQueue.main.async {
             self.isRecording = false
+            self.isVideoSessionActive = false
             self.currentSessionID = nil
             self.currentMetadataFileURL = nil
             self.currentMetadata = nil
@@ -437,13 +496,14 @@ extension PhoneVideoRecorder: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        // This delegate already runs on `sessionQueue`. Once the first frame is
+        // anchored, returning here avoids queueing work for every video frame.
+        guard needsFirstRecordedFrameTimestamp, hasStartedMovieOutput else { return }
         let estimatedUnixTime = Self.estimateUnixTime(
             for: sampleBuffer,
             sessionClock: captureSession.synchronizationClock
         )
-        sessionQueue.async {
-            self.recordFirstFrameTimestampIfNeeded(estimatedUnixTime: estimatedUnixTime)
-        }
+        recordFirstFrameTimestampIfNeeded(estimatedUnixTime: estimatedUnixTime)
     }
 }
 

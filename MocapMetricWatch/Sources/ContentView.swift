@@ -1,9 +1,14 @@
+import Foundation
 import SwiftUI
 import WatchMotionRecordingKit
 
 struct ContentView: View {
     @StateObject private var recorder = WatchRecordingCoordinator(
-        configuration: WatchRecordingConfiguration(recordsAudio: true)
+        configuration: WatchRecordingConfiguration(
+            scheduledLeadTime: 0,
+            allowsPhoneRecordingFallback: true,
+            recordsAudio: true
+        )
     )
     @StateObject private var workoutSession = WatchWorkoutSessionManager()
     @State private var showGraph = false
@@ -31,6 +36,20 @@ struct ContentView: View {
                     Text("Starting \(countdown, format: .number.precision(.fractionLength(1)))s")
                         .font(.caption.weight(.semibold))
                         .monospacedDigit()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let startedAt = recorder.recordingStartedAt {
+                HStack(spacing: 6) {
+                    Image(systemName: "record.circle.fill")
+                        .foregroundStyle(.red)
+
+                    TimelineView(.periodic(from: startedAt, by: 1)) { timeline in
+                        Text(Self.elapsedTimeString(from: startedAt, to: timeline.date))
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -94,8 +113,10 @@ struct ContentView: View {
                 workoutSession.endIfNeeded()
             }
         }
-        .onChange(of: recorder.statusMessage) { _, _ in
-            if !recorder.isRecording, workoutSession.isWorkoutActive {
+        .onChange(of: recorder.isPreparing) { _, isPreparing in
+            // A failed start never changes `isRecording` from false to true, so
+            // use the end of preparation to release the workout in that case.
+            if !isPreparing, !recorder.isRecording {
                 workoutSession.endIfNeeded()
             }
         }
@@ -109,9 +130,22 @@ struct ContentView: View {
         }
 
         Task {
+            guard recorder.isHighFrequencyRecordingSupported else {
+                recorder.startRecording()
+                return
+            }
             guard await workoutSession.startIfNeeded() else { return }
             recorder.startRecording()
         }
+    }
+
+    /// Formats a stable elapsed time instead of Watch's relative-time wording.
+    private static func elapsedTimeString(from start: Date, to current: Date) -> String {
+        let totalSeconds = max(0, Int(current.timeIntervalSince(start)))
+        let hours = totalSeconds / 3_600
+        let minutes = (totalSeconds % 3_600) / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }
 

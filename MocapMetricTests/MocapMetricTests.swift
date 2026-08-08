@@ -193,6 +193,37 @@ final class MocapMetricTests: XCTestCase {
         XCTAssertEqual(decoded.rawAcceleration[8].timestamp - decoded.rawAcceleration[0].timestamp, 0.01, accuracy: 0.000_001)
     }
 
+    func testLateAudioDeliveryIsMergedIntoExistingRecordingPackage() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
+        let coreAssets: [RecordingPackageAssetKind] = [.deviceMotion, .rawAccelerometer, .watchMetadata]
+        for kind in coreAssets {
+            let url = directory.appendingPathComponent(
+                RecordingPackageLayout.assetFileName(kind, sessionID: sessionID)
+            )
+            try Data("core".utf8).write(to: url)
+        }
+
+        try RecordingInboxStore.assembleRecordingPackages(in: directory)
+        let packageURL = RecordingPackageLayout.packageURL(in: directory, sessionID: sessionID)
+        XCTAssertNil(try RecordingPackageDescriptor(packageURL: packageURL).audioURL)
+
+        let audioURL = directory.appendingPathComponent(
+            RecordingPackageLayout.assetFileName(.audio, sessionID: sessionID)
+        )
+        let audioData = Data("audio".utf8)
+        try audioData.write(to: audioURL)
+
+        try RecordingInboxStore.assembleRecordingPackages(in: directory)
+
+        let package = try RecordingPackageDescriptor(packageURL: packageURL)
+        let packagedAudioURL = try XCTUnwrap(package.audioURL)
+        XCTAssertEqual(try Data(contentsOf: packagedAudioURL), audioData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("MocapMetricTests-\(UUID().uuidString)", isDirectory: true)

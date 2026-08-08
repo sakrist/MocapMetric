@@ -44,6 +44,28 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D2B91D0C2F5B0122005AE3AA"
+               BuildableName = "HurleyMetricWatch Watch AppTests.xctest"
+               BlueprintName = "HurleyMetricWatch Watch AppTests"
+               ReferencedContainer = "container:MocapMetric.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D2B91D162F5B0122005AE3AA"
+               BuildableName = "HurleyMetricWatch Watch AppUITests.xctest"
+               BlueprintName = "HurleyMetricWatch Watch AppUITests"
+               ReferencedContainer = "container:MocapMetric.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

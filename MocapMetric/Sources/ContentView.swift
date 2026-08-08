@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var videoRecorder: PhoneVideoRecorder
     @StateObject private var inboxStore: RecordingInboxStore
     @State private var selectedRecording: RecordingSession?
+    @State private var showingVideoRecorder = false
 
     init() {
         let videoRecorder = PhoneVideoRecorder()
@@ -16,30 +17,11 @@ struct ContentView: View {
         NavigationStack {
             List {
                 Section("iPhone Video") {
-                    Toggle("Record iPhone video with watch", isOn: Binding(
-                        get: { videoRecorder.isArmed },
-                        set: { videoRecorder.setArmed($0) }
-                    ))
-
-                    Text("Keep the iPhone app open and reachable. Remote video start/stop only works while this app is active.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if videoRecorder.isArmed {
-                        ZStack {
-                            CameraPreviewView(session: videoRecorder.captureSession)
-                            if videoRecorder.showSyncFlash {
-                                Rectangle()
-                                    .fill(Color.white)
-                            }
-                        }
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        Text(videoRecorder.statusMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Button("Open Video Recorder") {
+                        videoRecorder.openVideoRecorder()
+                        showingVideoRecorder = true
                     }
+                    .buttonStyle(.borderedProminent)
                 }
 
                 Section("Recordings") {
@@ -108,7 +90,75 @@ struct ContentView: View {
             .sheet(item: $selectedRecording) { recording in
                 ActivityView(items: recording.shareItems)
             }
+            .fullScreenCover(isPresented: $showingVideoRecorder) {
+                VideoRecorderView(videoRecorder: videoRecorder) {
+                    showingVideoRecorder = false
+                    videoRecorder.closeVideoRecorder()
+                }
+            }
         }
+    }
+}
+
+private struct VideoRecorderView: View {
+    @ObservedObject var videoRecorder: PhoneVideoRecorder
+    let onBack: () -> Void
+
+    private var isSessionActive: Bool {
+        videoRecorder.isVideoSessionActive || videoRecorder.isRecording
+    }
+
+    private var indicatorTitle: String {
+        if videoRecorder.isRecording { return "Recording" }
+        if videoRecorder.isVideoSessionActive { return "Starting" }
+        if videoRecorder.isConfigured { return "Ready for Watch" }
+        return "Preparing camera"
+    }
+
+    var body: some View {
+        ZStack {
+            CameraPreviewView(session: videoRecorder.captureSession)
+                .ignoresSafeArea()
+
+            if videoRecorder.showSyncFlash {
+                Color.white
+                    .ignoresSafeArea()
+            }
+
+            VStack {
+                HStack {
+                    Button("Back", systemImage: "chevron.left") {
+                        onBack()
+                    }
+                    .disabled(isSessionActive)
+
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(videoRecorder.isRecording ? .red : .white.opacity(0.65))
+                            .frame(width: 10, height: 10)
+                        Text(indicatorTitle)
+                            .font(.headline.weight(.semibold))
+                    }
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+                Spacer()
+
+                Text(videoRecorder.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.45), in: Capsule())
+                    .padding(.bottom, 28)
+            }
+        }
+        .background(.black)
+        .interactiveDismissDisabled()
     }
 }
 
