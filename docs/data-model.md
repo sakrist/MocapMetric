@@ -27,7 +27,7 @@ required for graph review.
 The canonical persisted form is a folder-based package:
 
 ```text
-<uuid>.recording/
+<uuid>.mmrec/
 ├── <uuid>.device-motion.bin
 ├── <uuid>.raw-accelerometer.bin
 ├── <uuid>.watch.json

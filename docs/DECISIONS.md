@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-08-09 — Rename the recording package extension
+
+MocapMetric uses `<uuid>.mmrec` for the shared recording package. This is a
+container-name change only: binary streams, JSON sidecars, and optional media
+are unchanged, and old `.recording` directories are not accepted as packages.
+
 ## 2026-08-08 — Merge late optional assets before package export
 
 WatchConnectivity may deliver audio after the iPhone has already assembled the
@@ -42,14 +48,14 @@ still stops working after it captures the single first-frame timing anchor.
 
 ## 2026-08-06 — Use a folder package for portable recordings
 
-MocapMetric persists one session as `<uuid>.recording`. The core
+MocapMetric persists one session as `<uuid>.mmrec`. The core
 package contains the two native Watch binary streams and `.watch.json`; audio
 is optional, while video requires `.phone.json`. WatchConnectivity remains
 file-oriented for retryability, and the iPhone assembles or replaces packages
 atomically after staging. The package has no extra manifest or converted copy
 of the sensor data.
 
-New package directories and assets use the UUID directly (`<uuid>.recording`,
+New package directories and assets use the UUID directly (`<uuid>.mmrec`,
 `<uuid>.device-motion.bin`, and so on). Legacy prefixed loose filenames remain
 readable where the shared filename parser supports them.
 

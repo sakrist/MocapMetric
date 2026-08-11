@@ -14,7 +14,7 @@ matching sample indexes.
 
 ## Recording packages
 
-Each session is stored and shared as a `<uuid>.recording` folder containing:
+Each session is stored and shared as a `<uuid>.mmrec` folder containing:
 
 - `<uuid>.device-motion.bin`
 - `<uuid>.raw-accelerometer.bin`

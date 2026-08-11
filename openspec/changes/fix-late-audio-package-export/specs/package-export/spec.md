@@ -2,7 +2,7 @@
 
 ### Requirement: Complete package export
 
-The iPhone SHALL keep the assembled `<uuid>.recording` folder synchronized with
+The iPhone SHALL keep the assembled `<uuid>.mmrec` folder synchronized with
 all optional assets received for that session before the recording is shared.
 
 #### Scenario: Audio arrives after core assets

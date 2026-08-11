@@ -91,4 +91,4 @@ requires the complete device-motion/raw-accelerometer/Watch-metadata set.
 Phone video, phone metadata, and Watch audio can arrive independently and are
 optional for motion graph review. `RecordingInboxStore` stages those files by
 UUID, merges late optional assets into an existing package, and atomically
-replaces the `.recording` directory before it is shared.
+replaces the `.mmrec` directory before it is shared.
