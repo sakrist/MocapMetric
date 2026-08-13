@@ -27,7 +27,7 @@
 			containerPortal = D2B91CC62F5AFCFF005AE3AA /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D2B91D002F5B0120005AE3AA;
-			remoteInfo = "MocapMetricWatch";
+			remoteInfo = MocapMetricWatch;
 		};
 /* End PBXContainerItemProxy section */
 

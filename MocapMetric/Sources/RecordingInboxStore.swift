@@ -65,6 +65,11 @@ struct RecordingSession: Identifiable {
         deviceMotionURL != nil && rawAccelerometerURL != nil && watchMetadataURL != nil
     }
 
+    var hasPartialMotionSet: Bool {
+        !hasCompleteMotionSet
+            && (deviceMotionURL != nil || rawAccelerometerURL != nil || watchMetadataURL != nil)
+    }
+
     var detailLabel: String {
         var parts: [String] = []
 
@@ -91,16 +96,39 @@ struct RecordingSession: Identifiable {
 final class RecordingInboxStore: NSObject, ObservableObject {
     @Published private(set) var recordings: [RecordingSession] = []
     @Published private(set) var statusMessage = "Waiting for watch"
+    @Published private(set) var isWatchConnected = false
+    @Published private(set) var isWatchRecording = false
+    @Published private(set) var isWatchTransferring = false
+    @Published private(set) var pendingWatchSessionCount = 0
+    @Published private(set) var isReceivingFile = false
     private let videoRecorder: PhoneVideoRecorder
+    private var fileReceiptActivityTask: Task<Void, Never>?
 
-    init(videoRecorder: PhoneVideoRecorder) {
+    init(videoRecorder: PhoneVideoRecorder, shouldActivateSession: Bool = true) {
         self.videoRecorder = videoRecorder
         super.init()
         videoRecorder.onRecordingSaved = { [weak self] in
             self?.reloadRecordings()
         }
+        if shouldActivateSession {
+            syncWithWatch()
+        } else {
+            reloadRecordings()
+        }
+    }
+
+    deinit {
+        fileReceiptActivityTask?.cancel()
+    }
+
+    var isSyncActive: Bool {
+        isWatchTransferring || isReceivingFile
+    }
+
+    func syncWithWatch() {
         reloadRecordings()
         activateSession()
+        requestPendingRecordingRetryIfNeeded()
     }
 
     func reloadRecordings() {
@@ -329,12 +357,67 @@ final class RecordingInboxStore: NSObject, ObservableObject {
     private func activateSession() {
         guard WCSession.isSupported() else {
             statusMessage = "WatchConnectivity unavailable"
+            isWatchConnected = false
             return
         }
 
         let session = WCSession.default
+        if session.activationState == .activated {
+            if session.delegate !== self {
+                session.delegate = self
+            }
+            updateConnectionState(from: session)
+            applyWatchContext(session.receivedApplicationContext, from: session)
+            return
+        }
         session.delegate = self
         session.activate()
+    }
+
+    private func updateConnectionState(from session: WCSession) {
+        isWatchConnected = session.activationState == .activated
+            && session.isPaired
+            && session.isWatchAppInstalled
+    }
+
+    private func applyWatchContext(_ context: [String: Any], from session: WCSession) {
+        guard let state = WatchRecordingStateContext(dictionary: context) else { return }
+        applyWatchState(state)
+        updateConnectionState(from: session)
+    }
+
+    func applyWatchState(_ state: WatchRecordingStateContext) {
+        isWatchRecording = state.isRecording
+        pendingWatchSessionCount = state.pendingSyncSessionCount
+        // Zero pending sessions is the explicit completed state, even if an
+        // older application context still carries a coarse syncing flag.
+        isWatchTransferring = state.isSyncing && state.pendingSyncSessionCount > 0
+    }
+
+    private func requestPendingRecordingRetryIfNeeded() {
+        let needsRetry = pendingWatchSessionCount > 0
+            || recordings.contains(where: \.hasPartialMotionSet)
+        guard needsRetry, !isWatchTransferring, WCSession.isSupported() else {
+            return
+        }
+
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return }
+        session.sendMessage(
+            [WatchRecordingCommand.commandKey: WatchRecordingCommand.retryPendingTransfers],
+            replyHandler: nil,
+            errorHandler: nil
+        )
+    }
+
+    private func noteFileReceiptActivity() {
+        fileReceiptActivityTask?.cancel()
+        isReceivingFile = true
+        fileReceiptActivityTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.isReceivingFile = false
+        }
     }
 
     private func handleReceivedFile(_ file: WCSessionFile) {
@@ -371,6 +454,7 @@ final class RecordingInboxStore: NSObject, ObservableObject {
             try fileManager.moveItem(at: incomingURL, to: destinationURL)
 
             DispatchQueue.main.async {
+                self.noteFileReceiptActivity()
                 self.statusMessage = "Received \(destinationURL.lastPathComponent)"
                 self.reloadRecordings()
             }
@@ -449,11 +533,21 @@ final class RecordingInboxStore: NSObject, ObservableObject {
 extension RecordingInboxStore: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
+            self.updateConnectionState(from: session)
             if let error {
                 self.statusMessage = "Session error: \(error.localizedDescription)"
             } else {
                 self.statusMessage = "Waiting for watch"
+                self.applyWatchContext(session.receivedApplicationContext, from: session)
+                self.requestPendingRecordingRetryIfNeeded()
             }
+        }
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async {
+            self.updateConnectionState(from: session)
+            self.requestPendingRecordingRetryIfNeeded()
         }
     }
 
@@ -470,7 +564,21 @@ extension RecordingInboxStore: WCSessionDelegate {
         handleReceivedFile(file)
     }
 
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        DispatchQueue.main.async {
+            self.applyWatchContext(applicationContext, from: session)
+        }
+    }
+
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        if let state = WatchRecordingStateContext(dictionary: message) {
+            DispatchQueue.main.async {
+                self.applyWatchState(state)
+                self.updateConnectionState(from: session)
+            }
+            return
+        }
+
         guard let controlMessage = RecordingControlMessage(dictionary: message) else {
             return
         }

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WatchMotionRecordingKit
+import WatchConnectivity
 
 struct ContentView: View {
     @StateObject private var recorder = WatchRecordingCoordinator(
@@ -94,6 +95,13 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            if !recorder.isRecording, !recorder.isArmed {
+                WatchSyncStatusLabel(
+                    pendingSessionCount: recorder.pendingSyncSessionCount,
+                    isSyncing: recorder.isSyncing
+                )
+            }
+
             if let workoutErrorMessage = workoutSession.lastErrorMessage {
                 Text(workoutErrorMessage)
                     .font(.caption2)
@@ -104,6 +112,8 @@ struct ContentView: View {
         .padding(8)
         .onAppear {
             recorder.setLiveGraphEnabled(showGraph)
+            recorder.retryPendingRecordingTransfers()
+            publishWatchState()
         }
         .onChange(of: showGraph) { _, isVisible in
             recorder.setLiveGraphEnabled(isVisible)
@@ -112,6 +122,13 @@ struct ContentView: View {
             if !isRecording {
                 workoutSession.endIfNeeded()
             }
+            publishWatchState()
+        }
+        .onChange(of: recorder.isSyncing) { _, _ in
+            publishWatchState()
+        }
+        .onChange(of: recorder.pendingSyncSessionCount) { _, _ in
+            publishWatchState()
         }
         .onChange(of: recorder.isPreparing) { _, isPreparing in
             // A failed start never changes `isRecording` from false to true, so
@@ -136,6 +153,22 @@ struct ContentView: View {
             }
             guard await workoutSession.startIfNeeded() else { return }
             recorder.startRecording()
+        }
+    }
+
+    private func publishWatchState() {
+        guard WCSession.isSupported() else { return }
+
+        let session = WCSession.default
+        let context = WatchRecordingStateContext(
+            isRecording: recorder.isRecording,
+            isSyncing: recorder.isSyncing,
+            pendingSyncSessionCount: recorder.pendingSyncSessionCount
+        ).dictionaryRepresentation
+        try? session.updateApplicationContext(context)
+
+        if session.activationState == .activated, session.isReachable {
+            session.sendMessage(context, replyHandler: nil, errorHandler: nil)
         }
     }
 

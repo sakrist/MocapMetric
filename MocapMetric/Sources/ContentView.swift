@@ -16,6 +16,15 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Watch") {
+                    WatchSyncStatusView(
+                        isConnected: inboxStore.isWatchConnected,
+                        isSyncing: inboxStore.isSyncActive,
+                        isRecording: inboxStore.isWatchRecording,
+                        pendingSessionCount: inboxStore.pendingWatchSessionCount
+                    )
+                }
+
                 Section("iPhone Video") {
                     Button("Open Video Recorder") {
                         videoRecorder.openVideoRecorder()
@@ -74,7 +83,7 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Refresh") {
-                        inboxStore.reloadRecordings()
+                        inboxStore.syncWithWatch()
                     }
                 }
             }

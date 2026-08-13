@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-08-13 — Use shared coarse Watch transfer feedback
+
+MocapMetric publishes the shared Watch recording, outstanding-transfer, and
+pending-session context instead of inferring sync from immediate reachability.
+The Watch uses compact orange text without a spinner; the iPhone uses an amber
+spinner for active transfer or recent file receipt. Paired/installed state is
+the idle availability definition, while reachability is used only for immediate
+commands. Zero pending sessions always resolves to the synced state so stale
+coarse context cannot leave completion open-ended.
+
+Refresh requests a Watch retry when the local required motion set is partial or
+the Watch reports pending work without an active transfer.
+MocapMetric does not adopt the production app's coalesced analysis scheduler
+because this reference app assembles packages and performs review only on user
+navigation; it has no automatic long-running session analysis pipeline.
+
 ## 2026-08-09 — Rename the recording package extension
 
 MocapMetric uses `<uuid>.mmrec` for the shared recording package. This is a

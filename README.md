@@ -25,6 +25,11 @@ Each session is stored and shared as a `<uuid>.mmrec` folder containing:
 WatchConnectivity may transfer files individually, but the iPhone only exposes
 the session after the required files have been assembled and validated.
 
+The Watch shows a compact pending/sync/completed label after recording. The
+iPhone recording list shows paired Watch availability and uses an amber activity
+indicator only while files are queued or arriving. Refresh re-requests missing
+assets for an incomplete motion set or pending Watch session when reachable.
+
 ## Synchronization
 
 When iPhone video is enabled, the iPhone chooses a planned start time and

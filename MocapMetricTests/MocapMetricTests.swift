@@ -3,6 +3,65 @@ import WatchMotionRecordingKit
 @testable import MocapMetric
 
 final class MocapMetricTests: XCTestCase {
+    func testRecordingSessionDistinguishesPartialAndCompleteMotionSets() {
+        let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
+        let deviceMotionURL = URL(fileURLWithPath: "/tmp/\(sessionID).device-motion.bin")
+        let rawAccelerometerURL = URL(fileURLWithPath: "/tmp/\(sessionID).raw-accelerometer.bin")
+        let watchMetadataURL = URL(fileURLWithPath: "/tmp/\(sessionID).watch.json")
+
+        let partial = RecordingSession(
+            id: sessionID,
+            createdAt: .now,
+            deviceMotionURL: deviceMotionURL,
+            rawAccelerometerURL: nil,
+            audioURL: nil,
+            videoURL: nil,
+            phoneMetadataURL: nil,
+            watchMetadataURL: nil
+        )
+        let complete = RecordingSession(
+            id: sessionID,
+            createdAt: .now,
+            deviceMotionURL: deviceMotionURL,
+            rawAccelerometerURL: rawAccelerometerURL,
+            audioURL: nil,
+            videoURL: nil,
+            phoneMetadataURL: nil,
+            watchMetadataURL: watchMetadataURL
+        )
+
+        XCTAssertTrue(partial.hasPartialMotionSet)
+        XCTAssertFalse(partial.hasCompleteMotionSet)
+        XCTAssertFalse(complete.hasPartialMotionSet)
+        XCTAssertTrue(complete.hasCompleteMotionSet)
+    }
+
+    @MainActor
+    func testWatchStateUsesZeroPendingSessionsAsCompletedTransfer() {
+        let store = RecordingInboxStore(
+            videoRecorder: PhoneVideoRecorder(),
+            shouldActivateSession: false
+        )
+
+        store.applyWatchState(WatchRecordingStateContext(
+            isRecording: true,
+            isSyncing: true,
+            pendingSyncSessionCount: 2
+        ))
+        XCTAssertTrue(store.isWatchRecording)
+        XCTAssertTrue(store.isWatchTransferring)
+        XCTAssertEqual(store.pendingWatchSessionCount, 2)
+
+        store.applyWatchState(WatchRecordingStateContext(
+            isRecording: false,
+            isSyncing: true,
+            pendingSyncSessionCount: 0
+        ))
+        XCTAssertFalse(store.isWatchRecording)
+        XCTAssertFalse(store.isWatchTransferring)
+        XCTAssertEqual(store.pendingWatchSessionCount, 0)
+    }
+
     func testAlignmentUsesPhoneFirstVideoFrameAndValidatesWatchSidecar() throws {
         let sessionID = "00112233-4455-4677-8899-aabbccddeeff"
         let phoneMetadata = PhoneRecordingMetadata(

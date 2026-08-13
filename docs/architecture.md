@@ -92,3 +92,18 @@ Phone video, phone metadata, and Watch audio can arrive independently and are
 optional for motion graph review. `RecordingInboxStore` stages those files by
 UUID, merges late optional assets into an existing package, and atomically
 replaces the `.mmrec` directory before it is shared.
+
+## Transfer state and recovery
+
+The Watch publishes recording activity, queued file-transfer activity, and the
+retained pending-session count through `WatchRecordingStateContext`. Its idle UI
+uses a compact text label without a spinner and treats zero pending sessions as
+the explicit synced end state.
+
+`RecordingInboxStore` consumes both application context and live messages. It
+defines availability as an activated, paired Watch with the app installed;
+`isReachable` is reserved for immediate control and retry commands. Each file
+receipt keeps iPhone sync feedback active for three seconds while the inbox is
+reassembled. Refresh asks a reachable Watch to retry retained assets only when
+the iPhone has a partial required motion set or the Watch reports pending work
+with no active transfer.
